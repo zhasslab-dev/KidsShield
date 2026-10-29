@@ -18,12 +18,11 @@ jobs:
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
 
-      - name: Generate Project Structure & Code
+      - name: Generate Project & Build APK
         run: |
           mkdir -p app/src/main/java/com/example/kidsadblocker
           mkdir -p app/src/main/res/layout
 
-          # 1. Настройки сборки проекта
           cat << 'EOF' > settings.gradle
           pluginManagement {
               repositories {
@@ -42,12 +41,14 @@ jobs:
           rootProject.name = "KidsShield"
           include ':app'
           EOF
+          sed -i 's/^          //' settings.gradle
 
           cat << 'EOF' > gradle.properties
           org.gradle.jvmargs=-Xmx2048m -Dfile.encoding=UTF-8
           android.useAndroidX=true
           kotlin.code.style=official
           EOF
+          sed -i 's/^          //' gradle.properties
 
           cat << 'EOF' > build.gradle
           plugins {
@@ -55,6 +56,7 @@ jobs:
               id 'org.jetbrains.kotlin.android' version '1.9.20' apply false
           }
           EOF
+          sed -i 's/^          //' build.gradle
 
           cat << 'EOF' > app/build.gradle
           plugins {
@@ -85,22 +87,20 @@ jobs:
               implementation 'com.google.android.material:material:1.11.0'
           }
           EOF
+          sed -i 's/^          //' app/build.gradle
 
-          # 2. Создаем AndroidManifest.xml
           cat << 'EOF' > app/src/main/AndroidManifest.xml
           <?xml version="1.0" encoding="utf-8"?>
           <manifest xmlns:android="http://schemas.android.com/apk/res/android">
               <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
               <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
               <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
-
               <application
                   android:allowBackup="true"
                   android:icon="@android:drawable/ic_secure"
                   android:label="Детский Щит"
                   android:supportsRtl="true"
                   android:theme="@style/Theme.AppCompat.NoActionBar">
-
                   <activity
                       android:name=".MainActivity"
                       android:exported="true"
@@ -110,7 +110,6 @@ jobs:
                           <category android:name="android.intent.category.LAUNCHER" />
                       </intent-filter>
                   </activity>
-
                   <service
                       android:name=".AdBlockVpnService"
                       android:permission="android.permission.BIND_VPN_SERVICE"
@@ -123,8 +122,8 @@ jobs:
               </application>
           </manifest>
           EOF
+          sed -i 's/^          //' app/src/main/AndroidManifest.xml
 
-          # 3. Создаем дизайн экрана (activity_main.xml)
           cat << 'EOF' > app/src/main/res/layout/activity_main.xml
           <?xml version="1.0" encoding="utf-8"?>
           <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
@@ -134,7 +133,6 @@ jobs:
               android:gravity="center_horizontal"
               android:padding="24dp"
               android:background="#121824">
-
               <TextView
                   android:layout_width="wrap_content"
                   android:layout_height="wrap_content"
@@ -143,7 +141,6 @@ jobs:
                   android:textStyle="bold"
                   android:textColor="#FFFFFF"
                   android:layout_marginTop="32dp"/>
-
               <TextView
                   android:layout_width="wrap_content"
                   android:layout_height="wrap_content"
@@ -152,7 +149,6 @@ jobs:
                   android:textColor="#8A99AD"
                   android:layout_marginTop="8dp"
                   android:layout_marginBottom="48dp"/>
-
               <LinearLayout
                   android:layout_width="match_parent"
                   android:layout_height="wrap_content"
@@ -161,7 +157,6 @@ jobs:
                   android:padding="28dp"
                   android:background="#1E2638"
                   android:layout_marginBottom="48dp">
-
                   <TextView
                       android:id="@+id/tvShieldIcon"
                       android:layout_width="wrap_content"
@@ -169,7 +164,6 @@ jobs:
                       android:text="⚠️"
                       android:textSize="56sp"
                       android:layout_marginBottom="12dp"/>
-
                   <TextView
                       android:id="@+id/tvStatusTitle"
                       android:layout_width="wrap_content"
@@ -178,7 +172,6 @@ jobs:
                       android:textSize="20sp"
                       android:textStyle="bold"
                       android:textColor="#FF5252"/>
-
                   <TextView
                       android:id="@+id/tvStatusDesc"
                       android:layout_width="wrap_content"
@@ -189,7 +182,6 @@ jobs:
                       android:gravity="center"
                       android:layout_marginTop="6dp"/>
               </LinearLayout>
-
               <Button
                   android:id="@+id/btnPower"
                   android:layout_width="match_parent"
@@ -199,7 +191,6 @@ jobs:
                   android:textStyle="bold"
                   android:textColor="#FFFFFF"
                   android:backgroundTint="#00C853"/>
-
               <TextView
                   android:layout_width="wrap_content"
                   android:layout_height="wrap_content"
@@ -209,11 +200,10 @@ jobs:
                   android:layout_marginTop="32dp"/>
           </LinearLayout>
           EOF
+          sed -i 's/^          //' app/src/main/res/layout/activity_main.xml
 
-          # 4. Создаем VPN-движок (AdBlockVpnService.kt)
           cat << 'EOF' > app/src/main/java/com/example/kidsadblocker/AdBlockVpnService.kt
           package com.example.kidsadblocker
-
           import android.app.Notification
           import android.app.NotificationChannel
           import android.app.NotificationManager
@@ -226,14 +216,12 @@ jobs:
 
           class AdBlockVpnService : VpnService() {
               private var vpnInterface: ParcelFileDescriptor? = null
-
               companion object {
                   var isRunning = false
                   const val ACTION_STOP = "ACTION_STOP_VPN"
                   private const val CHANNEL_ID = "KidsShieldChannel"
                   private const val NOTIFICATION_ID = 101
               }
-
               override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
                   if (intent?.action == ACTION_STOP) {
                       stopVpn()
@@ -243,7 +231,6 @@ jobs:
                   startVpn()
                   return START_STICKY
               }
-
               private fun startVpn() {
                   if (vpnInterface != null) return
                   try {
@@ -251,199 +238,15 @@ jobs:
                       builder.setSession("KidsShieldVPN")
                       builder.setMtu(1500)
                       builder.addAddress("10.0.0.2", 32)
-
                       val dns1 = "94.140.14.15"
                       val dns2 = "94.140.15.16"
                       builder.addDnsServer(dns1)
                       builder.addDnsServer(dns2)
                       builder.addRoute(dns1, 32)
                       builder.addRoute(dns2, 32)
-
                       vpnInterface = builder.establish()
                       isRunning = true
                   } catch (e: Exception) {
                       e.printStackTrace()
                       stopVpn()
                   }
-              }
-
-              private fun startForegroundServiceWithNotification() {
-                  val manager = getSystemService(NotificationManager::class.java)
-                  if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                      val channel = NotificationChannel(
-                          CHANNEL_ID, "Статус защиты", NotificationManager.IMPORTANCE_LOW
-                      )
-                      manager.createNotificationChannel(channel)
-                  }
-                  val pendingIntent = PendingIntent.getActivity(
-                      this, 0, Intent(this, MainActivity::class.java), PendingIntent.FLAG_IMMUTABLE
-                  )
-                  val notification: Notification = NotificationCompat.Builder(this, CHANNEL_ID)
-                      .setContentTitle("🛡️ Детский Щит активен")
-                      .setContentText("Реклама в мини-играх и браузере заблокирована")
-                      .setSmallIcon(android.R.drawable.ic_secure)
-                      .setContentIntent(pendingIntent)
-                      .setOngoing(true)
-                      .build()
-
-                  startForeground(NOTIFICATION_ID, notification)
-              }
-
-              private fun stopVpn() {
-                  try { vpnInterface?.close() } catch (e: Exception) { e.printStackTrace() }
-                  finally {
-                      vpnInterface = null
-                      isRunning = false
-                      stopForeground(true)
-                      stopSelf()
-                  }
-              }
-
-              override fun onDestroy() {
-                  stopVpn()
-                  super.onDestroy()
-              }
-          }
-          EOF
-
-          # 5. Создаем главный экран с рубильником и ПИН-кодом (MainActivity.kt)
-          cat << 'EOF' > app/src/main/java/com/example/kidsadblocker/MainActivity.kt
-          package com.example.kidsadblocker
-
-          import android.content.Intent
-          import android.content.res.ColorStateList
-          import android.graphics.Color
-          import android.net.VpnService
-          import android.os.Build
-          import android.os.Bundle
-          import android.text.InputType
-          import android.widget.Button
-          import android.widget.EditText
-          import android.widget.TextView
-          import android.widget.Toast
-          import androidx.activity.result.contract.ActivityResultContracts
-          import androidx.appcompat.app.AlertDialog
-          import androidx.appcompat.app.AppCompatActivity
-
-          class MainActivity : AppCompatActivity() {
-              private lateinit var tvShieldIcon: TextView
-              private lateinit var tvStatusTitle: TextView
-              private lateinit var tvStatusDesc: TextView
-              private lateinit var btnPower: Button
-              private val PARENT_PIN = "0000"
-
-              private val vpnPermissionLauncher = registerForActivityResult(
-                  ActivityResultContracts.StartActivityForResult()
-              ) { result ->
-                  if (result.resultCode == RESULT_OK) {
-                      startVpnService()
-                  } else {
-                      Toast.makeText(this, "Разрешите подключение для блокировки рекламы!", Toast.LENGTH_LONG).show()
-                  }
-              }
-
-              override fun onCreate(savedInstanceState: Bundle?) {
-                  super.onCreate(savedInstanceState)
-                  setContentView(R.layout.activity_main)
-
-                  tvShieldIcon = findViewById(R.id.tvShieldIcon)
-                  tvStatusTitle = findViewById(R.id.tvStatusTitle)
-                  tvStatusDesc = findViewById(R.id.tvStatusDesc)
-                  btnPower = findViewById(R.id.btnPower)
-
-                  updateUi()
-
-                  btnPower.setOnClickListener {
-                      if (AdBlockVpnService.isRunning) {
-                          showPinDialog()
-                      } else {
-                          prepareAndStartVpn()
-                      }
-                  }
-              }
-
-              override fun onResume() {
-                  super.onResume()
-                  updateUi()
-              }
-
-              private fun showPinDialog() {
-                  val input = EditText(this).apply {
-                      inputType = InputType.TYPE_CLASS_NUMBER or InputType.TYPE_NUMBER_VARIATION_PASSWORD
-                      hint = "ПИН-код (0000)"
-                      textAlignment = EditText.TEXT_ALIGNMENT_CENTER
-                  }
-                  AlertDialog.Builder(this)
-                      .setTitle("🔒 Родительский контроль")
-                      .setMessage("Введите ПИН-код для отключения защиты:")
-                      .setView(input)
-                      .setPositiveButton("ОК") { _, _ ->
-                          if (input.text.toString() == PARENT_PIN) {
-                              stopVpnService()
-                              Toast.makeText(this, "Защита отключена", Toast.LENGTH_SHORT).show()
-                          } else {
-                              Toast.makeText(this, "❌ Неверный ПИН-код!", Toast.LENGTH_LONG).show()
-                          }
-                      }
-                      .setNegativeButton("Отмена", null)
-                      .show()
-              }
-
-              private fun prepareAndStartVpn() {
-                  val intent = VpnService.prepare(this)
-                  if (intent != null) {
-                      vpnPermissionLauncher.launch(intent)
-                  } else {
-                      startVpnService()
-                  }
-              }
-
-              private fun startVpnService() {
-                  val intent = Intent(this, AdBlockVpnService::class.java)
-                  if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                      startForegroundService(intent)
-                  } else {
-                      startService(intent)
-                  }
-                  btnPower.postDelayed({ updateUi() }, 300)
-              }
-
-              private fun stopVpnService() {
-                  val intent = Intent(this, AdBlockVpnService::class.java).apply {
-                      action = AdBlockVpnService.ACTION_STOP
-                  }
-                  startService(intent)
-                  btnPower.postDelayed({ updateUi() }, 300)
-              }
-
-              private fun updateUi() {
-                  if (AdBlockVpnService.isRunning) {
-                      tvShieldIcon.text = "🛡️"
-                      tvStatusTitle.text = "ЗАЩИТА АКТИВНА"
-                      tvStatusTitle.setTextColor(Color.parseColor("#00E676"))
-                      tvStatusDesc.text = "Реклама в играх и браузере заблокирована"
-                      btnPower.text = "ВЫКЛЮЧИТЬ РУБИЛЬНИК"
-                      btnPower.backgroundTintList = ColorStateList.valueOf(Color.parseColor("#FF5252"))
-                  } else {
-                      tvShieldIcon.text = "⚠️"
-                      tvStatusTitle.text = "ЗАЩИТА ОТКЛЮЧЕНА"
-                      tvStatusTitle.setTextColor(Color.parseColor("#FF5252"))
-                      tvStatusDesc.text = "Нажмите кнопку ниже для включения фильтра"
-                      btnPower.text = "ВКЛЮЧИТЬ РУБИЛЬНИК"
-                      btnPower.backgroundTintList = ColorStateList.valueOf(Color.parseColor("#00C853"))
-                  }
-              }
-          }
-          EOF
-
-      - name: Build APK with Gradle
-        uses: gradle/actions/setup-gradle@v3
-        with:
-          gradle-version: '8.5'
-      - run: gradle assembleDebug
-
-      - name: Upload Ready APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: KidsShield-APK
-          path: app/build/outputs/apk/debug/app-debug.apk

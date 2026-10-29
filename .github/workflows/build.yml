@@ -16,8 +16,8 @@ jobs:
           java-version: '17'
 
       - name: Generate Android Project via Python
+        shell: python
         run: |
-          python3 -c '
           import os, textwrap
 
           def write(path, content):
@@ -298,4 +298,125 @@ jobs:
               import androidx.appcompat.app.AlertDialog
               import androidx.appcompat.app.AppCompatActivity
 
-              cl
+              class MainActivity : AppCompatActivity() {
+                  private lateinit var tvShieldIcon: TextView
+                  private lateinit var tvStatusTitle: TextView
+                  private lateinit var tvStatusDesc: TextView
+                  private lateinit var btnPower: Button
+                  private val PARENT_PIN = "0000"
+
+                  private val vpnPermissionLauncher = registerForActivityResult(
+                      ActivityResultContracts.StartActivityForResult()
+                  ) { result ->
+                      if (result.resultCode == RESULT_OK) {
+                          startVpnService()
+                      } else {
+                          Toast.makeText(this, "Разрешите подключение для блокировки рекламы!", Toast.LENGTH_LONG).show()
+                      }
+                  }
+
+                  override fun onCreate(savedInstanceState: Bundle?) {
+                      super.onCreate(savedInstanceState)
+                      setContentView(R.layout.activity_main)
+                      tvShieldIcon = findViewById(R.id.tvShieldIcon)
+                      tvStatusTitle = findViewById(R.id.tvStatusTitle)
+                      tvStatusDesc = findViewById(R.id.tvStatusDesc)
+                      btnPower = findViewById(R.id.btnPower)
+                      updateUi()
+                      btnPower.setOnClickListener {
+                          if (AdBlockVpnService.isRunning) {
+                              showPinDialog()
+                          } else {
+                              prepareAndStartVpn()
+                          }
+                      }
+                  }
+
+                  override fun onResume() {
+                      super.onResume()
+                      updateUi()
+                  }
+
+                  private fun showPinDialog() {
+                      val input = EditText(this).apply {
+                          inputType = InputType.TYPE_CLASS_NUMBER or InputType.TYPE_NUMBER_VARIATION_PASSWORD
+                          hint = "ПИН-код (0000)"
+                          textAlignment = EditText.TEXT_ALIGNMENT_CENTER
+                      }
+                      AlertDialog.Builder(this)
+                          .setTitle("🔒 Родительский контроль")
+                          .setMessage("Введите ПИН-код для отключения защиты:")
+                          .setView(input)
+                          .setPositiveButton("ОК") { _, _ ->
+                              if (input.text.toString() == PARENT_PIN) {
+                                  stopVpnService()
+                                  Toast.makeText(this, "Защита отключена", Toast.LENGTH_SHORT).show()
+                              } else {
+                                  Toast.makeText(this, "❌ Неверный ПИН-код!", Toast.LENGTH_LONG).show()
+                              }
+                          }
+                          .setNegativeButton("Отмена", null)
+                          .show()
+                  }
+
+                  private fun prepareAndStartVpn() {
+                      val intent = VpnService.prepare(this)
+                      if (intent != null) {
+                          vpnPermissionLauncher.launch(intent)
+                      } else {
+                          startVpnService()
+                      }
+                  }
+
+                  private fun startVpnService() {
+                      val intent = Intent(this, AdBlockVpnService::class.java)
+                      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                          startForegroundService(intent)
+                      } else {
+                          startService(intent)
+                      }
+                      btnPower.postDelayed({ updateUi() }, 300)
+                  }
+
+                  private fun stopVpnService() {
+                      val intent = Intent(this, AdBlockVpnService::class.java).apply {
+                          action = AdBlockVpnService.ACTION_STOP
+                      }
+                      startService(intent)
+                      btnPower.postDelayed({ updateUi() }, 300)
+                  }
+
+                  private fun updateUi() {
+                      if (AdBlockVpnService.isRunning) {
+                          tvShieldIcon.text = "🛡️"
+                          tvStatusTitle.text = "ЗАЩИТА АКТИВНА"
+                          tvStatusTitle.setTextColor(Color.parseColor("#00E676"))
+                          tvStatusDesc.text = "Реклама в играх и браузере заблокирована"
+                          btnPower.text = "ВЫКЛЮЧИТЬ РУБИЛЬНИК"
+                          btnPower.backgroundTintList = ColorStateList.valueOf(Color.parseColor("#FF5252"))
+                      } else {
+                          tvShieldIcon.text = "⚠️"
+                          tvStatusTitle.text = "ЗАЩИТА ОТКЛЮЧЕНА"
+                          tvStatusTitle.setTextColor(Color.parseColor("#FF5252"))
+                          tvStatusDesc.text = "Нажмите кнопку ниже для включения фильтра"
+                          btnPower.text = "ВКЛЮЧИТЬ РУБИЛЬНИК"
+                          btnPower.backgroundTintList = ColorStateList.valueOf(Color.parseColor("#00C853"))
+                      }
+                  }
+              }
+          """)
+          print("All project files generated successfully!")
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.5'
+
+      - name: Build Debug APK
+        run: gradle assembleDebug --stacktrace
+
+      - name: Upload Ready APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: KidsShield-APK
+          path: app/build/outputs/apk/debug/app-debug.apk

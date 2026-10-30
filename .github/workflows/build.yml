@@ -1,5 +1,3 @@
-
-Conversation with Gemini
 name: Build KidsShield APK
 
 
@@ -863,6 +861,20 @@ build
 
 Сохраните этот файл как .github/workflows/build.yml в вашем репозитории и запустите сборку.
 
+интегрируй также возможность устанавливать и на виндовс и эпл этот щит
+
+Я обновил конфигурацию GitHub Actions (build.yml), чтобы при каждом запуске параллельно собирались установщики «Детского Щита» для Android, Windows и Apple (macOS, iPhone, iPad):
+
+YML icon
+build
+ YML 
+Платформа	Артефакт в GitHub Actions	Файл внутри	Как работает и устанавливается
+Android	KidsShield-Android-APK	app-debug.apk	Устанавливается как обычное APK-приложение, поднимает локальный DNS-VPN (94.140.14.15 / 94.140.15.16) и требует ПИН-код 0000 для отключения
+Windows (10/11)	KidsShield-Windows-EXE	KidsShield.exe	Запускается без установки (автоматически запрашивает права Администратора), имеет тот же тёмный интерфейс с «рубильником», прописывает семейный DNS на всех активных сетевых адаптерах и защищает отключение ПИН-кодом 0000
+Apple (macOS)	KidsShield-Apple-Installers	KidsShield-macOS.zip (KidsShield.app)	Нативное приложение для Mac на SwiftUI с тем же интерфейсом и защитой ПИН-кодом 0000, управляющее системным DNS через networksetup
+Apple (iPhone / iPad / Mac)	KidsShield-Apple-Installers	KidsShield-iOS-macOS.mobileconfig	Системный профиль зашифрованного DNS (DNS-over-HTTPS через family.adguard-dns.com) со встроенным запретом удаления без ПИН-кода 0000 (откройте файл на iPhone/iPad → Настройки → Профиль загружен → Установить)
+Замените содержимое .github/workflows/build.yml этим файлом — после завершения сборки во вкладке Actions появятся все три архива с готовыми установщиками.
+
 
 
 
@@ -871,14 +883,15 @@ Gemini is AI and can make mistakes.
 
 
 Complete
-name: Build KidsShield APK
+name: Build KidsShield (Android, Windows, Apple)
 
 on:
   push:
   workflow_dispatch:
 
 jobs:
-  build:
+  build-android:
+    name: Build Android APK
     runs-on: ubuntu-latest
 
     steps:
@@ -1463,7 +1476,7 @@ jobs:
                   }
               }
           """)
-          print("All project files generated successfully!")
+          print("Android project files generated successfully!")
 
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
@@ -1473,10 +1486,555 @@ jobs:
       - name: Build Debug APK
         run: gradle assembleDebug --stacktrace
 
-      - name: Upload Ready APK
+      - name: Upload Android APK
         uses: actions/upload-artifact@v4
         with:
-          name: KidsShield-APK
+          name: KidsShield-Android-APK
           path: app/build/outputs/apk/debug/app-debug.apk
+
+  build-windows:
+    name: Build Windows EXE
+    runs-on: windows-latest
+
+    steps:
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Generate Windows App & Build EXE
+        shell: python
+        run: |
+          import subprocess
+          import sys
+          import textwrap
+
+          win_app = """
+              import ctypes
+              import subprocess
+              import sys
+              import tkinter as tk
+              from tkinter import messagebox, simpledialog
+
+              PARENT_PIN = "0000"
+              DNS_PRIMARY = "94.140.14.15"
+              DNS_SECONDARY = "94.140.15.16"
+              CREATE_NO_WINDOW = 0x08000000
+
+              def is_admin():
+                  try:
+                      return ctypes.windll.shell32.IsUserAnAdmin() != 0
+                  except Exception:
+                      return False
+
+              def run_ps(cmd):
+                  return subprocess.run(
+                      ["powershell", "-NoProfile", "-NonInteractive", "-Command", cmd],
+                      capture_output=True,
+                      text=True,
+                      creationflags=CREATE_NO_WINDOW
+                  )
+
+              def check_shield_active():
+                  res = run_ps("Get-DnsClientServerAddress -AddressFamily IPv4 | Select-Object -ExpandProperty ServerAddresses")
+                  return DNS_PRIMARY in (res.stdout or "")
+
+              def enable_shield():
+                  ps_cmd = (
+                      "$adapters = Get-NetAdapter | Where-Object { $_.Status -eq 'Up' }; "
+                      "foreach ($a in $adapters) { "
+                      f"Set-DnsClientServerAddress -InterfaceIndex $a.ifIndex -ServerAddresses ('{DNS_PRIMARY}','{DNS_SECONDARY}') "
+                      "}; "
+                      "Clear-DnsClientCache"
+                  )
+                  res = run_ps(ps_cmd)
+                  return res.returncode == 0
+
+              def disable_shield():
+                  ps_cmd = (
+                      "$adapters = Get-NetAdapter | Where-Object { $_.Status -eq 'Up' }; "
+                      "foreach ($a in $adapters) { "
+                      "Set-DnsClientServerAddress -InterfaceIndex $a.ifIndex -ResetServerAddresses "
+                      "}; "
+                      "Clear-DnsClientCache"
+                  )
+                  res = run_ps(ps_cmd)
+                  return res.returncode == 0
+
+              class KidsShieldWindowsApp:
+                  def __init__(self, root):
+                      self.root = root
+                      self.root.title("Детский Щит (Windows)")
+                      self.root.geometry("420x540")
+                      self.root.resizable(False, False)
+                      self.root.configure(bg="#121824")
+
+                      self.is_running = check_shield_active()
+
+                      tk.Label(
+                          root,
+                          text="ДЕТСКИЙ ЩИТ",
+                          font=("Segoe UI", 22, "bold"),
+                          fg="#FFFFFF",
+                          bg="#121824"
+                      ).pack(pady=(32, 4))
+
+                      tk.Label(
+                          root,
+                          text="Блокировка рекламы в играх и браузере",
+                          font=("Segoe UI", 10),
+                          fg="#8A99AD",
+                          bg="#121824"
+                      ).pack(pady=(0, 32))
+
+                      self.card = tk.Frame(root, bg="#1E2638", padx=28, pady=28)
+                      self.card.pack(fill="x", padx=24, pady=(0, 36))
+
+                      self.lbl_icon = tk.Label(
+                          self.card,
+                          text="⚠️",
+                          font=("Segoe UI Emoji", 42),
+                          bg="#1E2638",
+                          fg="#FFFFFF"
+                      )
+                      self.lbl_icon.pack(pady=(0, 10))
+
+                      self.lbl_status = tk.Label(
+                          self.card,
+                          text="ЗАЩИТА ОТКЛЮЧЕНА",
+                          font=("Segoe UI", 15, "bold"),
+                          bg="#1E2638",
+                          fg="#FF5252"
+                      )
+                      self.lbl_status.pack()
+
+                      self.lbl_desc = tk.Label(
+                          self.card,
+                          text="Реклама в мини-играх не блокируется",
+                          font=("Segoe UI", 10),
+                          bg="#1E2638",
+                          fg="#8A99AD"
+                      )
+                      self.lbl_desc.pack(pady=(6, 0))
+
+                      self.btn_power = tk.Button(
+                          root,
+                          text="ВКЛЮЧИТЬ РУБИЛЬНИК",
+                          font=("Segoe UI", 13, "bold"),
+                          fg="#FFFFFF",
+                          bg="#00C853",
+                          activebackground="#00E676",
+                          activeforeground="#FFFFFF",
+                          relief="flat",
+                          cursor="hand2",
+                          height=2,
+                          command=self.toggle_shield
+                      )
+                      self.btn_power.pack(fill="x", padx=24)
+
+                      tk.Label(
+                          root,
+                          text="🔒 Выключение защищено ПИН-кодом (0000)",
+                          font=("Segoe UI", 9),
+                          fg="#5C6B7F",
+                          bg="#121824"
+                      ).pack(pady=(28, 0))
+
+                      self.update_ui()
+
+                  def toggle_shield(self):
+                      if self.is_running:
+                          pin = simpledialog.askstring(
+                              "🔒 Родительский контроль",
+                              "Введите ПИН-код для отключения защиты:",
+                              show="*",
+                              parent=self.root
+                          )
+                          if pin is None:
+                              return
+                          if pin == PARENT_PIN:
+                              if disable_shield():
+                                  self.is_running = False
+                                  self.update_ui()
+                                  messagebox.showinfo("Детский Щит", "Защита отключена.")
+                              else:
+                                  messagebox.showerror("Ошибка", "Не удалось сбросить настройки DNS. Запустите программу от имени Администратора.")
+                          else:
+                              messagebox.showwarning("Родительский контроль", "❌ Неверный ПИН-код!")
+                      else:
+                          if enable_shield():
+                              self.is_running = True
+                              self.update_ui()
+                          else:
+                              messagebox.showerror("Ошибка", "Не удалось включить DNS-фильтр. Запустите программу от имени Администратора.")
+
+                  def update_ui(self):
+                      if self.is_running:
+                          self.lbl_icon.config(text="🛡️")
+                          self.lbl_status.config(text="ЗАЩИТА АКТИВНА", fg="#00E676")
+                          self.lbl_desc.config(text="Реклама в играх и браузере заблокирована")
+                          self.btn_power.config(text="ВЫКЛЮЧИТЬ РУБИЛЬНИК", bg="#FF5252", activebackground="#FF1744")
+                      else:
+                          self.lbl_icon.config(text="⚠️")
+                          self.lbl_status.config(text="ЗАЩИТА ОТКЛЮЧЕНА", fg="#FF5252")
+                          self.lbl_desc.config(text="Нажмите кнопку ниже для включения фильтра")
+                          self.btn_power.config(text="ВКЛЮЧИТЬ РУБИЛЬНИК", bg="#00C853", activebackground="#00E676")
+
+              if __name__ == "__main__":
+                  if not is_admin():
+                      ctypes.windll.shell32.ShellExecuteW(
+                          None, "runas", sys.executable, " ".join(sys.argv), None, 1
+                      )
+                      sys.exit(0)
+                  app_root = tk.Tk()
+                  KidsShieldWindowsApp(app_root)
+                  app_root.mainloop()
+          """
+
+          with open("kidsshield_win.py", "w", encoding="utf-8") as f:
+              f.write(textwrap.dedent(win_app).strip() + "\n")
+
+          subprocess.check_call([sys.executable, "-m", "pip", "install", "pyinstaller"])
+          subprocess.check_call([
+              sys.executable, "-m", "PyInstaller",
+              "--noconsole",
+              "--onefile",
+              "--uac-admin",
+              "--name", "KidsShield",
+              "kidsshield_win.py"
+          ])
+
+      - name: Upload Windows EXE
+        uses: actions/upload-artifact@v4
+        with:
+          name: KidsShield-Windows-EXE
+          path: dist/KidsShield.exe
+
+  build-apple:
+    name: Build Apple (macOS App & iOS/iPadOS Profile)
+    runs-on: macos-latest
+
+    steps:
+      - name: Generate macOS App & iOS/macOS DNS Profile
+        shell: python3
+        run: |
+          import os
+          import subprocess
+          import textwrap
+
+          def write(path, content):
+              os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
+              with open(path, "w", encoding="utf-8") as f:
+                  f.write(textwrap.dedent(content).strip() + "\n")
+
+          write("output/KidsShield-iOS-macOS.mobileconfig", """
+              <?xml version="1.0" encoding="UTF-8"?>
+              <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+              <plist version="1.0">
+              <dict>
+                  <key>PayloadContent</key>
+                  <array>
+                      <dict>
+                          <key>DNSSettings</key>
+                          <dict>
+                              <key>DNSProtocol</key>
+                              <string>HTTPS</string>
+                              <key>ServerAddresses</key>
+                              <array>
+                                  <string>94.140.14.15</string>
+                                  <string>94.140.15.16</string>
+                              </array>
+                              <key>ServerURL</key>
+                              <string>https://family.adguard-dns.com/dns-query</string>
+                          </dict>
+                          <key>PayloadDescription</key>
+                          <string>Блокировка рекламы и взрослого контента в играх и браузере (AdGuard Family DNS)</string>
+                          <key>PayloadDisplayName</key>
+                          <string>Детский Щит DNS</string>
+                          <key>PayloadIdentifier</key>
+                          <string>com.example.kidsadblocker.dns</string>
+                          <key>PayloadType</key>
+                          <string>com.apple.dnsSettings.managed</string>
+                          <key>PayloadUUID</key>
+                          <string>7A9E62B0-3C14-4F8B-9B12-1029384756AB</string>
+                          <key>PayloadVersion</key>
+                          <integer>1</integer>
+                      </dict>
+                      <dict>
+                          <key>PayloadDescription</key>
+                          <string>Защита профиля от удаления без ПИН-кода (0000)</string>
+                          <key>PayloadDisplayName</key>
+                          <string>Родительский ПИН-код</string>
+                          <key>PayloadIdentifier</key>
+                          <string>com.example.kidsadblocker.removalpassword</string>
+                          <key>PayloadType</key>
+                          <string>com.apple.profileRemovalPassword</string>
+                          <key>PayloadUUID</key>
+                          <string>8B0F73C1-4D25-4A9C-8C23-2130495867BC</string>
+                          <key>PayloadVersion</key>
+                          <integer>1</integer>
+                          <key>RemovalPassword</key>
+                          <string>0000</string>
+                      </dict>
+                  </array>
+                  <key>PayloadDescription</key>
+                  <string>Детский Щит: системная блокировка рекламы в играх и Safari на iPhone, iPad и Mac. ПИН-код для удаления: 0000.</string>
+                  <key>PayloadDisplayName</key>
+                  <string>🛡️ Детский Щит (iOS / iPadOS / macOS)</string>
+                  <key>PayloadIdentifier</key>
+                  <string>com.example.kidsadblocker.profile</string>
+                  <key>PayloadOrganization</key>
+                  <string>KidsShield</string>
+                  <key>PayloadRemovalDisallowed</key>
+                  <true/>
+                  <key>PayloadType</key>
+                  <string>Configuration</string>
+                  <key>PayloadUUID</key>
+                  <string>6F8D51A9-2B03-4E7A-8A01-0918273645FA</string>
+                  <key>PayloadVersion</key>
+                  <integer>1</integer>
+              </dict>
+              </plist>
+          """)
+
+          write("KidsShield.swift", """
+              import Cocoa
+              import SwiftUI
+
+              let parentPin = "0000"
+              let dnsPrimary = "94.140.14.15"
+              let dnsSecondary = "94.140.15.16"
+
+              class ShieldManager: ObservableObject {
+                  @Published var isRunning: Bool = false
+
+                  init() {
+                      checkStatus()
+                  }
+
+                  func checkStatus() {
+                      let task = Process()
+                      task.launchPath = "/usr/sbin/scutil"
+                      task.arguments = ["--dns"]
+                      let pipe = Pipe()
+                      task.standardOutput = pipe
+                      do {
+                          try task.run()
+                          task.waitUntilExit()
+                          let data = pipe.fileHandleForReading.readDataToEndOfFile()
+                          let output = String(data: data, encoding: .utf8) ?? ""
+                          DispatchQueue.main.async {
+                              self.isRunning = output.contains(dnsPrimary)
+                          }
+                      } catch {
+                          DispatchQueue.main.async {
+                              self.isRunning = false
+                          }
+                      }
+                  }
+
+                  func enableShield() {
+                      let script = \"\"\"
+                      do shell script "for s in $(networksetup -listallnetworkservices | tail -n +2 | sed 's/^\\\\*//'); do networksetup -setdnsservers \\"$s\\" \(dnsPrimary) \(dnsSecondary) 2>/dev/null || true; done; dscacheutil -flushcache; killall -HUP mDNSResponder 2>/dev/null || true" with administrator privileges
+                      \"\"\"
+                      if runAppleScript(script) {
+                          isRunning = true
+                      }
+                  }
+
+                  func disableShield() {
+                      let script = \"\"\"
+                      do shell script "for s in $(networksetup -listallnetworkservices | tail -n +2 | sed 's/^\\\\*//'); do networksetup -setdnsservers \\"$s\\" Empty 2>/dev/null || true; done; dscacheutil -flushcache; killall -HUP mDNSResponder 2>/dev/null || true" with administrator privileges
+                      \"\"\"
+                      if runAppleScript(script) {
+                          isRunning = false
+                      }
+                  }
+
+                  private func runAppleScript(_ source: String) -> Bool {
+                      var error: NSDictionary?
+                      if let scriptObject = NSAppleScript(source: source) {
+                          scriptObject.executeAndReturnError(&error)
+                          return error == nil
+                      }
+                      return false
+                  }
+              }
+
+              struct ContentView: View {
+                  @StateObject private var manager = ShieldManager()
+                  @State private var showPinPrompt = false
+                  @State private var pinInput = ""
+                  @State private var showWrongPinAlert = false
+
+                  var body: some View {
+                      VStack(spacing: 0) {
+                          Text("ДЕТСКИЙ ЩИТ")
+                              .font(.system(size: 26, weight: .bold))
+                              .foregroundColor(.white)
+                              .padding(.top, 32)
+
+                          Text("Блокировка рекламы в играх и браузере")
+                              .font(.system(size: 13))
+                              .foregroundColor(Color(red: 0.54, green: 0.60, blue: 0.68))
+                              .padding(.top, 6)
+                              .padding(.bottom, 36)
+
+                          VStack(spacing: 10) {
+                              Text(manager.isRunning ? "🛡️" : "⚠️")
+                                  .font(.system(size: 52))
+                              Text(manager.isRunning ? "ЗАЩИТА АКТИВНА" : "ЗАЩИТА ОТКЛЮЧЕНА")
+                                  .font(.system(size: 18, weight: .bold))
+                                  .foregroundColor(manager.isRunning
+                                      ? Color(red: 0.0, green: 0.90, blue: 0.46)
+                                      : Color(red: 1.0, green: 0.32, blue: 0.32))
+                              Text(manager.isRunning
+                                  ? "Реклама в играх и браузере заблокирована"
+                                  : "Нажмите кнопку ниже для включения фильтра")
+                                  .font(.system(size: 13))
+                                  .foregroundColor(Color(red: 0.54, green: 0.60, blue: 0.68))
+                                  .multilineTextAlignment(.center)
+                          }
+                          .frame(maxWidth: .infinity)
+                          .padding(26)
+                          .background(Color(red: 0.12, green: 0.15, blue: 0.22))
+                          .cornerRadius(12)
+                          .padding(.horizontal, 24)
+                          .padding(.bottom, 36)
+
+                          Button(action: {
+                              if manager.isRunning {
+                                  pinInput = ""
+                                  showPinPrompt = true
+                              } else {
+                                  manager.enableShield()
+                              }
+                          }) {
+                              Text(manager.isRunning ? "ВЫКЛЮЧИТЬ РУБИЛЬНИК" : "ВКЛЮЧИТЬ РУБИЛЬНИК")
+                                  .font(.system(size: 16, weight: .bold))
+                                  .foregroundColor(.white)
+                                  .frame(maxWidth: .infinity)
+                                  .frame(height: 60)
+                                  .background(manager.isRunning
+                                      ? Color(red: 1.0, green: 0.32, blue: 0.32)
+                                      : Color(red: 0.0, green: 0.78, blue: 0.33))
+                                  .cornerRadius(10)
+                          }
+                          .buttonStyle(PlainButtonStyle())
+                          .padding(.horizontal, 24)
+
+                          Text("🔒 Выключение защищено ПИН-кодом (0000)")
+                              .font(.system(size: 12))
+                              .foregroundColor(Color(red: 0.36, green: 0.42, blue: 0.50))
+                              .padding(.top, 28)
+
+                          Spacer()
+                      }
+                      .frame(width: 400, height: 500)
+                      .background(Color(red: 0.07, green: 0.09, blue: 0.14))
+                      .sheet(isPresented: $showPinPrompt) {
+                          VStack(spacing: 16) {
+                              Text("🔒 Родительский контроль")
+                                  .font(.headline)
+                              Text("Введите ПИН-код для отключения защиты:")
+                                  .font(.subheadline)
+                              SecureField("ПИН-код (0000)", text: $pinInput)
+                                  .textFieldStyle(RoundedBorderTextFieldStyle())
+                                  .frame(width: 180)
+                              HStack(spacing: 12) {
+                                  Button("Отмена") {
+                                      showPinPrompt = false
+                                  }
+                                  Button("ОК") {
+                                      showPinPrompt = false
+                                      if pinInput == parentPin {
+                                          manager.disableShield()
+                                      } else {
+                                          showWrongPinAlert = true
+                                      }
+                                  }
+                              }
+                          }
+                          .padding(24)
+                          .frame(width: 300, height: 180)
+                      }
+                      .alert(isPresented: $showWrongPinAlert) {
+                          Alert(
+                              title: Text("Ошибка"),
+                              message: Text("❌ Неверный ПИН-код!"),
+                              dismissButton: .default(Text("ОК"))
+                          )
+                      }
+                  }
+              }
+
+              class AppDelegate: NSObject, NSApplicationDelegate {
+                  var window: NSWindow!
+                  func applicationDidFinishLaunching(_ notification: Notification) {
+                      let contentView = ContentView()
+                      window = NSWindow(
+                          contentRect: NSRect(x: 0, y: 0, width: 400, height: 500),
+                          styleMask: [.titled, .closable, .miniaturizable],
+                          backing: .buffered,
+                          defer: false
+                      )
+                      window.center()
+                      window.title = "Детский Щит"
+                      window.contentView = NSHostingView(rootView: contentView)
+                      window.makeKeyAndOrderFront(nil)
+                      NSApp.activate(ignoringOtherApps: true)
+                  }
+                  func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
+                      return true
+                  }
+              }
+
+              let app = NSApplication.shared
+              let delegate = AppDelegate()
+              app.delegate = delegate
+              app.setActivationPolicy(.regular)
+              app.run()
+          """)
+
+          os.makedirs("KidsShield.app/Contents/MacOS", exist_ok=True)
+          write("KidsShield.app/Contents/Info.plist", """
+              <?xml version="1.0" encoding="UTF-8"?>
+              <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+              <plist version="1.0">
+              <dict>
+                  <key>CFBundleExecutable</key>
+                  <string>KidsShield</string>
+                  <key>CFBundleIdentifier</key>
+                  <string>com.example.kidsadblocker.mac</string>
+                  <key>CFBundleName</key>
+                  <string>Детский Щит</string>
+                  <key>CFBundlePackageType</key>
+                  <string>APPL</string>
+                  <key>CFBundleShortVersionString</key>
+                  <string>1.0</string>
+                  <key>LSMinimumSystemVersion</key>
+                  <string>11.0</string>
+                  <key>NSHighResolutionCapable</key>
+                  <true/>
+              </dict>
+              </plist>
+          """)
+
+          subprocess.check_call([
+              "swiftc", "KidsShield.swift",
+              "-o", "KidsShield.app/Contents/MacOS/KidsShield"
+          ])
+          subprocess.check_call([
+              "ditto", "-c", "-k", "--sequesterRsrc", "--keepParent",
+              "KidsShield.app", "output/KidsShield-macOS.zip"
+          ])
+
+      - name: Upload Apple Installers (macOS App + iOS/iPadOS Profile)
+        uses: actions/upload-artifact@v4
+        with:
+          name: KidsShield-Apple-Installers
+          path: |
+            output/KidsShield-macOS.zip
+            output/KidsShield-iOS-macOS.mobileconfig
 build.yml
 Displaying build.yml.

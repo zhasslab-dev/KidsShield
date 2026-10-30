@@ -1,2040 +1,2306 @@
-name: Build KidsShield APK
-
-
-
-on:
-
-  push:
-
-  workflow_dispatch:
-
-
-
-jobs:
-
-  build:
-
-    runs-on: ubuntu-latest
-
-
-
-    steps:
-
-      - name: Set up JDK 17
-
-        uses: actions/setup-java@v5
-
-        with:
-
-          distribution: 'temurin'
-
-          java-version: '17'
-
-
-
-      - name: Generate Android Project via Python
-
-        shell: python
-
-        run: |
-
-          import os, textwrap
-
-
-
-          def write(path, content):
-
-              os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
-
-              with open(path, "w", encoding="utf-8") as f:
-
-                  f.write(textwrap.dedent(content).strip() + "\n")
-
-
-
-          write("settings.gradle", """
-
-              pluginManagement {
-
-                  repositories {
-
-                      google()
-
-                      mavenCentral()
-
-                      gradlePluginPortal()
-
-                  }
-
-              }
-
-              dependencyResolutionManagement {
-
-                  repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
-
-                  repositories {
-
-                      google()
-
-                      mavenCentral()
-
-                  }
-
-              }
-
-              rootProject.name = "KidsShield"
-
-              include ":app"
-
-          """)
-
-
-
-          write("gradle.properties", """
-
-              org.gradle.jvmargs=-Xmx2048m -Dfile.encoding=UTF-8
-
-              android.useAndroidX=true
-
-              kotlin.code.style=official
-
-          """)
-
-
-
-          write("build.gradle", """
-
-              plugins {
-
-                  id "com.android.application" version "8.2.0" apply false
-
-                  id "org.jetbrains.kotlin.android" version "1.9.20" apply false
-
-              }
-
-          """)
-
-
-
-          write("app/build.gradle", """
-
-              plugins {
-
-                  id "com.android.application"
-
-                  id "org.jetbrains.kotlin.android"
-
-              }
-
-              android {
-
-                  namespace "com.example.kidsadblocker"
-
-                  compileSdk 34
-
-                  defaultConfig {
-
-                      applicationId "com.example.kidsadblocker"
-
-                      minSdk 24
-
-                      targetSdk 34
-
-                      versionCode 1
-
-                      versionName "1.0"
-
-                  }
-
-                  compileOptions {
-
-                      sourceCompatibility JavaVersion.VERSION_17
-
-                      targetCompatibility JavaVersion.VERSION_17
-
-                  }
-
-                  kotlinOptions {
-
-                      jvmTarget = "17"
-
-                  }
-
-              }
-
-              dependencies {
-
-                  implementation "androidx.core:core-ktx:1.12.0"
-
-                  implementation "androidx.appcompat:appcompat:1.6.1"
-
-                  implementation "com.google.android.material:material:1.11.0"
-
-              }
-
-          """)
-
-
-
-          write("app/src/main/AndroidManifest.xml", """
-
-              <?xml version="1.0" encoding="utf-8"?>
-
-              <manifest xmlns:android="http://schemas.android.com/apk/res/android">
-
-                  <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
-
-                  <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
-
-                  <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
-
-                  <application
-
-                      android:allowBackup="true"
-
-                      android:icon="@android:drawable/ic_secure"
-
-                      android:label="Детский Щит"
-
-                      android:supportsRtl="true"
-
-                      android:theme="@style/Theme.AppCompat.NoActionBar">
-
-                      <activity
-
-                          android:name=".MainActivity"
-
-                          android:exported="true"
-
-                          android:screenOrientation="portrait">
-
-                          <intent-filter>
-
-                              <action android:name="android.intent.action.MAIN" />
-
-                              <category android:name="android.intent.category.LAUNCHER" />
-
-                          </intent-filter>
-
-                      </activity>
-
-                      <service
-
-                          android:name=".AdBlockVpnService"
-
-                          android:permission="android.permission.BIND_VPN_SERVICE"
-
-                          android:foregroundServiceType="specialUse"
-
-                          android:exported="true">
-
-                          <intent-filter>
-
-                              <action android:name="android.net.VpnService" />
-
-                          </intent-filter>
-
-                      </service>
-
-                  </application>
-
-              </manifest>
-
-          """)
-
-
-
-          write("app/src/main/res/layout/activity_main.xml", """
-
-              <?xml version="1.0" encoding="utf-8"?>
-
-              <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-
-                  android:layout_width="match_parent"
-
-                  android:layout_height="match_parent"
-
-                  android:orientation="vertical"
-
-                  android:gravity="center_horizontal"
-
-                  android:padding="24dp"
-
-                  android:background="#121824">
-
-                  <TextView
-
-                      android:layout_width="wrap_content"
-
-                      android:layout_height="wrap_content"
-
-                      android:text="ДЕТСКИЙ ЩИТ"
-
-                      android:textSize="28sp"
-
-                      android:textStyle="bold"
-
-                      android:textColor="#FFFFFF"
-
-                      android:layout_marginTop="32dp"/>
-
-                  <TextView
-
-                      android:layout_width="wrap_content"
-
-                      android:layout_height="wrap_content"
-
-                      android:text="Блокировка рекламы в играх и браузере"
-
-                      android:textSize="14sp"
-
-                      android:textColor="#8A99AD"
-
-                      android:layout_marginTop="8dp"
-
-                      android:layout_marginBottom="48dp"/>
-
-                  <LinearLayout
-
-                      android:layout_width="match_parent"
-
-                      android:layout_height="wrap_content"
-
-                      android:orientation="vertical"
-
-                      android:gravity="center"
-
-                      android:padding="28dp"
-
-                      android:background="#1E2638"
-
-                      android:layout_marginBottom="48dp">
-
-                      <TextView
-
-                          android:id="@+id/tvShieldIcon"
-
-                          android:layout_width="wrap_content"
-
-                          android:layout_height="wrap_content"
-
-                          android:text="⚠️"
-
-                          android:textSize="56sp"
-
-                          android:layout_marginBottom="12dp"/>
-
-                      <TextView
-
-                          android:id="@+id/tvStatusTitle"
-
-                          android:layout_width="wrap_content"
-
-                          android:layout_height="wrap_content"
-
-                          android:text="ЗАЩИТА ОТКЛЮЧЕНА"
-
-                          android:textSize="20sp"
-
-                          android:textStyle="bold"
-
-                          android:textColor="#FF5252"/>
-
-                      <TextView
-
-                          android:id="@+id/tvStatusDesc"
-
-                          android:layout_width="wrap_content"
-
-                          android:layout_height="wrap_content"
-
-                          android:text="Реклама в мини-играх не блокируется"
-
-                          android:textSize="14sp"
-
-                          android:textColor="#8A99AD"
-
-                          android:gravity="center"
-
-                          android:layout_marginTop="6dp"/>
-
-                  </LinearLayout>
-
-                  <Button
-
-                      android:id="@+id/btnPower"
-
-                      android:layout_width="match_parent"
-
-                      android:layout_height="76dp"
-
-                      android:text="ВКЛЮЧИТЬ РУБИЛЬНИК"
-
-                      android:textSize="18sp"
-
-                      android:textStyle="bold"
-
-                      android:textColor="#FFFFFF"
-
-                      android:backgroundTint="#00C853"/>
-
-                  <TextView
-
-                      android:layout_width="wrap_content"
-
-                      android:layout_height="wrap_content"
-
-                      android:text="🔒 Выключение защищено ПИН-кодом (0000)"
-
-                      android:textSize="13sp"
-
-                      android:textColor="#5C6B7F"
-
-                      android:layout_marginTop="32dp"/>
-
-              </LinearLayout>
-
-          """)
-
-
-
-          write("app/src/main/java/com/example/kidsadblocker/AdBlockVpnService.kt", """
-
-              package com.example.kidsadblocker
-
-              import android.app.Notification
-
-              import android.app.NotificationChannel
-
-              import android.app.NotificationManager
-
-              import android.app.PendingIntent
-
-              import android.content.Intent
-
-              import android.net.VpnService
-
-              import android.os.Build
-
-              import android.os.ParcelFileDescriptor
-
-              import androidx.core.app.NotificationCompat
-
-
-
-              class AdBlockVpnService : VpnService() {
-
-                  private var vpnInterface: ParcelFileDescriptor? = null
-
-                  companion object {
-
-                      var isRunning = false
-
-                      const val ACTION_STOP = "ACTION_STOP_VPN"
-
-                      private const val CHANNEL_ID = "KidsShieldChannel"
-
-                      private const val NOTIFICATION_ID = 101
-
-                  }
-
-                  override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-
-                      if (intent?.action == ACTION_STOP) {
-
-                          stopVpn()
-
-                          return START_NOT_STICKY
-
-                      }
-
-                      startForegroundServiceWithNotification()
-
-                      startVpn()
-
-                      return START_STICKY
-
-                  }
-
-                  private fun startVpn() {
-
-                      if (vpnInterface != null) return
-
-                      try {
-
-                          val builder = Builder()
-
-                          builder.setSession("KidsShieldVPN")
-
-                          builder.setMtu(1500)
-
-                          builder.addAddress("10.0.0.2", 32)
-
-                          val dns1 = "94.140.14.15"
-
-                          val dns2 = "94.140.15.16"
-
-                          builder.addDnsServer(dns1)
-
-                          builder.addDnsServer(dns2)
-
-                          builder.addRoute(dns1, 32)
-
-                          builder.addRoute(dns2, 32)
-
-                          vpnInterface = builder.establish()
-
-                          isRunning = true
-
-                      } catch (e: Exception) {
-
-                          e.printStackTrace()
-
-                          stopVpn()
-
-                      }
-
-                  }
-
-                  private fun startForegroundServiceWithNotification() {
-
-                      val manager = getSystemService(NotificationManager::class.java)
-
-                      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-
-                          val channel = NotificationChannel(CHANNEL_ID, "Статус защиты", NotificationManager.IMPORTANCE_LOW)
-
-                          manager.createNotificationChannel(channel)
-
-                      }
-
-                      val pendingIntent = PendingIntent.getActivity(
-
-                          this, 0, Intent(this, MainActivity::class.java), PendingIntent.FLAG_IMMUTABLE
-
-                      )
-
-                      val notification: Notification = NotificationCompat.Builder(this, CHANNEL_ID)
-
-                          .setContentTitle("🛡️ Детский Щит активен")
-
-                          .setContentText("Реклама в мини-играх и браузере заблокирована")
-
-                          .setSmallIcon(android.R.drawable.ic_secure)
-
-                          .setContentIntent(pendingIntent)
-
-                          .setOngoing(true)
-
-                          .build()
-
-                      startForeground(NOTIFICATION_ID, notification)
-
-                  }
-
-                  private fun stopVpn() {
-
-                      try { vpnInterface?.close() } catch (e: Exception) { e.printStackTrace() }
-
-                      finally {
-
-                          vpnInterface = null
-
-                          isRunning = false
-
-                          stopForeground(true)
-
-                          stopSelf()
-
-                      }
-
-                  }
-
-                  override fun onDestroy() {
-
-                      stopVpn()
-
-                      super.onDestroy()
-
-                  }
-
-              }
-
-          """)
-
-
-
-          write("app/src/main/java/com/example/kidsadblocker/MainActivity.kt", """
-
-              package com.example.kidsadblocker
-
-              import android.content.Intent
-
-              import android.content.res.ColorStateList
-
-              import android.graphics.Color
-
-              import android.net.VpnService
-
-              import android.os.Build
-
-              import android.os.Bundle
-
-              import android.text.InputType
-
-              import android.widget.Button
-
-              import android.widget.EditText
-
-              import android.widget.TextView
-
-              import android.widget.Toast
-
-              import androidx.activity.result.contract.ActivityResultContracts
-
-              import androidx.appcompat.app.AlertDialog
-
-              import androidx.appcompat.app.AppCompatActivity
-
-
-
-              class MainActivity : AppCompatActivity() {
-
-                  private lateinit var tvShieldIcon: TextView
-
-                  private lateinit var tvStatusTitle: TextView
-
-                  private lateinit var tvStatusDesc: TextView
-
-                  private lateinit var btnPower: Button
-
-                  private val PARENT_PIN = "0000"
-
-
-
-                  private val vpnPermissionLauncher = registerForActivityResult(
-
-                      ActivityResultContracts.StartActivityForResult()
-
-                  ) { result ->
-
-                      if (result.resultCode == RESULT_OK) {
-
-                          startVpnService()
-
-                      } else {
-
-                          Toast.makeText(this, "Разрешите подключение для блокировки рекламы!", Toast.LENGTH_LONG).show()
-
-                      }
-
-                  }
-
-
-
-                  override fun onCreate(savedInstanceState: Bundle?) {
-
-                      super.onCreate(savedInstanceState)
-
-                      setContentView(R.layout.activity_main)
-
-                      tvShieldIcon = findViewById(R.id.tvShieldIcon)
-
-                      tvStatusTitle = findViewById(R.id.tvStatusTitle)
-
-                      tvStatusDesc = findViewById(R.id.tvStatusDesc)
-
-                      btnPower = findViewById(R.id.btnPower)
-
-                      updateUi()
-
-                      btnPower.setOnClickListener {
-
-                          if (AdBlockVpnService.isRunning) {
-
-                              showPinDialog()
-
-                          } else {
-
-                              prepareAndStartVpn()
-
-                          }
-
-                      }
-
-                  }
-
-
-
-                  override fun onResume() {
-
-                      super.onResume()
-
-                      updateUi()
-
-                  }
-
-
-
-                  private fun showPinDialog() {
-
-                      val input = EditText(this).apply {
-
-                          inputType = InputType.TYPE_CLASS_NUMBER or InputType.TYPE_NUMBER_VARIATION_PASSWORD
-
-                          hint = "ПИН-код (0000)"
-
-                          textAlignment = EditText.TEXT_ALIGNMENT_CENTER
-
-                      }
-
-                      AlertDialog.Builder(this)
-
-                          .setTitle("🔒 Родительский контроль")
-
-                          .setMessage("Введите ПИН-код для отключения защиты:")
-
-                          .setView(input)
-
-                          .setPositiveButton("ОК") { _, _ ->
-
-                              if (input.text.toString() == PARENT_PIN) {
-
-                                  stopVpnService()
-
-                                  Toast.makeText(this, "Защита отключена", Toast.LENGTH_SHORT).show()
-
-                              } else {
-
-                                  Toast.makeText(this, "❌ Неверный ПИН-код!", Toast.LENGTH_LONG).show()
-
-                              }
-
-                          }
-
-                          .setNegativeButton("Отмена", null)
-
-                          .show()
-
-                  }
-
-
-
-                  private fun prepareAndStartVpn() {
-
-                      val intent = VpnService.prepare(this)
-
-                      if (intent != null) {
-
-                          vpnPermissionLauncher.launch(intent)
-
-                      } else {
-
-                          startVpnService()
-
-                      }
-
-                  }
-
-
-
-                  private fun startVpnService() {
-
-                      val intent = Intent(this, AdBlockVpnService::class.java)
-
-                      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-
-                          startForegroundService(intent)
-
-                      } else {
-
-                          startService(intent)
-
-                      }
-
-                      btnPower.postDelayed({ updateUi() }, 300)
-
-                  }
-
-
-
-                  private fun stopVpnService() {
-
-                      val intent = Intent(this, AdBlockVpnService::class.java).apply {
-
-                          action = AdBlockVpnService.ACTION_STOP
-
-                      }
-
-                      startService(intent)
-
-                      btnPower.postDelayed({ updateUi() }, 300)
-
-                  }
-
-
-
-                  private fun updateUi() {
-
-                      if (AdBlockVpnService.isRunning) {
-
-                          tvShieldIcon.text = "🛡️"
-
-                          tvStatusTitle.text = "ЗАЩИТА АКТИВНА"
-
-                          tvStatusTitle.setTextColor(Color.parseColor("#00E676"))
-
-                          tvStatusDesc.text = "Реклама в играх и браузере заблокирована"
-
-                          btnPower.text = "ВЫКЛЮЧИТЬ РУБИЛЬНИК"
-
-                          btnPower.backgroundTintList = ColorStateList.valueOf(Color.parseColor("#FF5252"))
-
-                      } else {
-
-                          tvShieldIcon.text = "⚠️"
-
-                          tvStatusTitle.text = "ЗАЩИТА ОТКЛЮЧЕНА"
-
-                          tvStatusTitle.setTextColor(Color.parseColor("#FF5252"))
-
-                          tvStatusDesc.text = "Нажмите кнопку ниже для включения фильтра"
-
-                          btnPower.text = "ВКЛЮЧИТЬ РУБИЛЬНИК"
-
-                          btnPower.backgroundTintList = ColorStateList.valueOf(Color.parseColor("#00C853"))
-
-                      }
-
-                  }
-
-              }
-
-          """)
-
-          print("All project files generated successfully!")
-
-
-
-      - name: Setup Gradle
-
-        uses: gradle/actions/setup-gradle@v4
-
-        with:
-
-          gradle-version: '8.5'
-
-
-
-      - name: Build Debug APK
-
-        run: gradle assembleDebug --stacktrace
-
-
-
-      - name: Upload Ready APK
-
-        uses: actions/upload-artifact@v4
-
-        with:
-
-          name: KidsShield-APK
-
-          path: app/build/outputs/apk/debug/app-debug.apk
-
-fix bag
-
-Я исправил ошибки в GitHub Actions workflow и коде Android-приложения. Готовый файл конфигурации:
-
-YML icon
-build
- YML 
-Исправленные ошибки:
-
-Неразрывные пробелы (U+00A0) в YAML и Python: заменил скрытые символы неразрывного пробела в отступах на обычные пробелы, из-за которых падали парсер GitHub Actions YAML и функция textwrap.dedent (SyntaxError: invalid non-printable character U+00A0).
-
-Падение Foreground Service на Android 14 (targetSdk 34): добавил обязательное свойство android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE в AndroidManifest.xml и передачу флага ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE в startForeground(), без которых приложение аварийно завершалось с MissingForegroundServiceTypeException.
-
-Отсутствие INTERNET и пересылка DNS-пакетов в AdBlockVpnService: добавил разрешение android.permission.INTERNET и обработчик UDP-пакетов для маршрутов 94.140.14.15/32 и 94.140.15.16/32 через защищённый protect(socket) сокет (ранее трафик к DNS уходил в TUN-интерфейс без чтения и блокировал доступ в интернет).
-
-Разрешение на уведомления для Android 13+: добавил запрос POST_NOTIFICATIONS в MainActivity перед запуском VPN-сервиса и шаг android-actions/setup-android@v3 для стабильной сборки в GitHub Actions.
-
-Сохраните этот файл как .github/workflows/build.yml в вашем репозитории и запустите сборку.
-
-интегрируй также возможность устанавливать и на виндовс и эпл этот щит
-
-Я обновил конфигурацию GitHub Actions (build.yml), чтобы при каждом запуске параллельно собирались установщики «Детского Щита» для Android, Windows и Apple (macOS, iPhone, iPad):
-
-YML icon
-build
- YML 
-Платформа	Артефакт в GitHub Actions	Файл внутри	Как работает и устанавливается
-Android	KidsShield-Android-APK	app-debug.apk	Устанавливается как обычное APK-приложение, поднимает локальный DNS-VPN (94.140.14.15 / 94.140.15.16) и требует ПИН-код 0000 для отключения
-Windows (10/11)	KidsShield-Windows-EXE	KidsShield.exe	Запускается без установки (автоматически запрашивает права Администратора), имеет тот же тёмный интерфейс с «рубильником», прописывает семейный DNS на всех активных сетевых адаптерах и защищает отключение ПИН-кодом 0000
-Apple (macOS)	KidsShield-Apple-Installers	KidsShield-macOS.zip (KidsShield.app)	Нативное приложение для Mac на SwiftUI с тем же интерфейсом и защитой ПИН-кодом 0000, управляющее системным DNS через networksetup
-Apple (iPhone / iPad / Mac)	KidsShield-Apple-Installers	KidsShield-iOS-macOS.mobileconfig	Системный профиль зашифрованного DNS (DNS-over-HTTPS через family.adguard-dns.com) со встроенным запретом удаления без ПИН-кода 0000 (откройте файл на iPhone/iPad → Настройки → Профиль загружен → Установить)
-Замените содержимое .github/workflows/build.yml этим файлом — после завершения сборки во вкладке Actions появятся все три архива с готовыми установщиками.
-
-
-
-
-
-Gemini is AI and can make mistakes.
-
-
-Complete
 name: Build KidsShield (Android, Windows, Apple)
 
+
+
 on:
+
   push:
+
   workflow_dispatch:
 
+
+
 jobs:
+
   build-android:
+
     name: Build Android APK
+
     runs-on: ubuntu-latest
 
+
+
     steps:
+
       - name: Set up JDK 17
+
         uses: actions/setup-java@v5
+
         with:
+
           distribution: 'temurin'
+
           java-version: '17'
 
+
+
       - name: Set up Android SDK
+
         uses: android-actions/setup-android@v3
 
+
+
       - name: Generate Android Project via Python
+
         shell: python
+
         run: |
+
           import os
+
           import textwrap
+
+
 
           def write(path, content):
+
               os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
+
               with open(path, "w", encoding="utf-8") as f:
+
                   f.write(textwrap.dedent(content).strip() + "\n")
 
+
+
           write("settings.gradle", """
+
               pluginManagement {
+
                   repositories {
+
                       google()
+
                       mavenCentral()
+
                       gradlePluginPortal()
+
                   }
+
               }
+
               dependencyResolutionManagement {
+
                   repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+
                   repositories {
+
                       google()
+
                       mavenCentral()
+
                   }
+
               }
+
               rootProject.name = "KidsShield"
+
               include ":app"
+
           """)
+
+
 
           write("gradle.properties", """
+
               org.gradle.jvmargs=-Xmx2048m -Dfile.encoding=UTF-8
+
               android.useAndroidX=true
+
               kotlin.code.style=official
+
           """)
+
+
 
           write("build.gradle", """
+
               plugins {
+
                   id "com.android.application" version "8.2.0" apply false
+
                   id "org.jetbrains.kotlin.android" version "1.9.20" apply false
+
               }
+
           """)
+
+
 
           write("app/build.gradle", """
+
               plugins {
+
                   id "com.android.application"
+
                   id "org.jetbrains.kotlin.android"
+
               }
+
               android {
+
                   namespace "com.example.kidsadblocker"
+
                   compileSdk 34
+
                   defaultConfig {
+
                       applicationId "com.example.kidsadblocker"
+
                       minSdk 24
+
                       targetSdk 34
+
                       versionCode 1
+
                       versionName "1.0"
+
                   }
+
                   compileOptions {
+
                       sourceCompatibility JavaVersion.VERSION_17
+
                       targetCompatibility JavaVersion.VERSION_17
+
                   }
+
                   kotlinOptions {
+
                       jvmTarget = "17"
+
                   }
+
               }
+
               dependencies {
+
                   implementation "androidx.core:core-ktx:1.12.0"
+
                   implementation "androidx.appcompat:appcompat:1.6.1"
+
                   implementation "com.google.android.material:material:1.11.0"
+
               }
+
           """)
+
+
 
           write("app/src/main/AndroidManifest.xml", """
+
               <?xml version="1.0" encoding="utf-8"?>
+
               <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
                   <uses-permission android:name="android.permission.INTERNET" />
+
                   <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+
                   <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
+
                   <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
+
+
                   <application
+
                       android:allowBackup="true"
+
                       android:icon="@android:drawable/ic_secure"
+
                       android:label="Детский Щит"
+
                       android:supportsRtl="true"
+
                       android:theme="@style/Theme.AppCompat.NoActionBar">
+
                       <activity
+
                           android:name=".MainActivity"
+
                           android:exported="true"
+
                           android:screenOrientation="portrait">
+
                           <intent-filter>
+
                               <action android:name="android.intent.action.MAIN" />
+
                               <category android:name="android.intent.category.LAUNCHER" />
+
                           </intent-filter>
+
                       </activity>
+
                       <service
+
                           android:name=".AdBlockVpnService"
+
                           android:permission="android.permission.BIND_VPN_SERVICE"
+
                           android:foregroundServiceType="specialUse"
+
                           android:exported="true">
+
                           <property
+
                               android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+
                               android:value="vpn_dns_adblocker" />
+
                           <intent-filter>
+
                               <action android:name="android.net.VpnService" />
+
                           </intent-filter>
+
                       </service>
+
                   </application>
+
               </manifest>
+
           """)
+
+
 
           write("app/src/main/res/layout/activity_main.xml", """
+
               <?xml version="1.0" encoding="utf-8"?>
+
               <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+
                   android:layout_width="match_parent"
+
                   android:layout_height="match_parent"
+
                   android:orientation="vertical"
+
                   android:gravity="center_horizontal"
+
                   android:padding="24dp"
+
                   android:background="#121824">
+
                   <TextView
+
                       android:layout_width="wrap_content"
+
                       android:layout_height="wrap_content"
+
                       android:text="ДЕТСКИЙ ЩИТ"
+
                       android:textSize="28sp"
+
                       android:textStyle="bold"
+
                       android:textColor="#FFFFFF"
+
                       android:layout_marginTop="32dp"/>
+
                   <TextView
+
                       android:layout_width="wrap_content"
+
                       android:layout_height="wrap_content"
+
                       android:text="Блокировка рекламы в играх и браузере"
+
                       android:textSize="14sp"
+
                       android:textColor="#8A99AD"
+
                       android:layout_marginTop="8dp"
+
                       android:layout_marginBottom="48dp"/>
+
                   <LinearLayout
+
                       android:layout_width="match_parent"
+
                       android:layout_height="wrap_content"
+
                       android:orientation="vertical"
+
                       android:gravity="center"
+
                       android:padding="28dp"
+
                       android:background="#1E2638"
+
                       android:layout_marginBottom="48dp">
+
                       <TextView
+
                           android:id="@+id/tvShieldIcon"
+
                           android:layout_width="wrap_content"
+
                           android:layout_height="wrap_content"
+
                           android:text="⚠️"
+
                           android:textSize="56sp"
+
                           android:layout_marginBottom="12dp"/>
+
                       <TextView
+
                           android:id="@+id/tvStatusTitle"
+
                           android:layout_width="wrap_content"
+
                           android:layout_height="wrap_content"
+
                           android:text="ЗАЩИТА ОТКЛЮЧЕНА"
+
                           android:textSize="20sp"
+
                           android:textStyle="bold"
+
                           android:textColor="#FF5252"/>
+
                       <TextView
+
                           android:id="@+id/tvStatusDesc"
+
                           android:layout_width="wrap_content"
+
                           android:layout_height="wrap_content"
+
                           android:text="Реклама в мини-играх не блокируется"
+
                           android:textSize="14sp"
+
                           android:textColor="#8A99AD"
+
                           android:gravity="center"
+
                           android:layout_marginTop="6dp"/>
+
                   </LinearLayout>
+
                   <Button
+
                       android:id="@+id/btnPower"
+
                       android:layout_width="match_parent"
+
                       android:layout_height="76dp"
+
                       android:text="ВКЛЮЧИТЬ РУБИЛЬНИК"
+
                       android:textSize="18sp"
+
                       android:textStyle="bold"
+
                       android:textColor="#FFFFFF"
+
                       android:backgroundTint="#00C853"/>
+
                   <TextView
+
                       android:layout_width="wrap_content"
+
                       android:layout_height="wrap_content"
+
                       android:text="🔒 Выключение защищено ПИН-кодом (0000)"
+
                       android:textSize="13sp"
+
                       android:textColor="#5C6B7F"
+
                       android:layout_marginTop="32dp"/>
+
               </LinearLayout>
+
           """)
+
+
 
           write("app/src/main/java/com/example/kidsadblocker/AdBlockVpnService.kt", """
+
               package com.example.kidsadblocker
+
+
 
               import android.app.Notification
+
               import android.app.NotificationChannel
+
               import android.app.NotificationManager
+
               import android.app.PendingIntent
+
               import android.content.Intent
+
               import android.content.pm.ServiceInfo
+
               import android.net.VpnService
+
               import android.os.Build
+
               import android.os.ParcelFileDescriptor
+
               import androidx.core.app.NotificationCompat
+
               import androidx.core.app.ServiceCompat
+
               import java.io.FileInputStream
+
               import java.io.FileOutputStream
+
               import java.net.DatagramPacket
+
               import java.net.DatagramSocket
+
               import java.net.InetAddress
+
               import java.util.concurrent.atomic.AtomicBoolean
 
+
+
               class AdBlockVpnService : VpnService() {
+
                   private var vpnInterface: ParcelFileDescriptor? = null
+
                   private var vpnThread: Thread? = null
+
                   private val shouldRun = AtomicBoolean(false)
 
+
+
                   companion object {
+
                       @Volatile
+
                       var isRunning = false
+
                       const val ACTION_STOP = "ACTION_STOP_VPN"
+
                       private const val CHANNEL_ID = "KidsShieldChannel"
+
                       private const val NOTIFICATION_ID = 101
+
                   }
+
+
 
                   override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+
                       if (intent?.action == ACTION_STOP) {
+
                           stopVpn()
+
                           return START_NOT_STICKY
+
                       }
+
                       startForegroundServiceWithNotification()
+
                       startVpn()
+
                       return START_STICKY
+
                   }
+
+
 
                   private fun startVpn() {
+
                       if (vpnInterface != null) return
+
                       try {
+
                           val dns1 = "94.140.14.15"
+
                           val dns2 = "94.140.15.16"
+
                           val builder = Builder()
+
                               .setSession("KidsShieldVPN")
+
                               .setMtu(1500)
+
                               .addAddress("10.0.0.2", 32)
+
                               .addDnsServer(dns1)
+
                               .addDnsServer(dns2)
+
                               .addRoute(dns1, 32)
+
                               .addRoute(dns2, 32)
 
+
+
                           vpnInterface = builder.establish()
+
                           if (vpnInterface == null) {
+
                               stopVpn()
+
                               return
+
                           }
+
                           isRunning = true
+
                           shouldRun.set(true)
+
                           startDnsForwarder()
+
                       } catch (e: Exception) {
+
                           e.printStackTrace()
+
                           stopVpn()
+
                       }
+
                   }
+
+
 
                   private fun startDnsForwarder() {
+
                       val pfd = vpnInterface ?: return
+
                       vpnThread = Thread {
+
                           val inputStream = FileInputStream(pfd.fileDescriptor)
+
                           val outputStream = FileOutputStream(pfd.fileDescriptor)
+
                           val packet = ByteArray(32767)
+
                           while (shouldRun.get()) {
+
                               try {
+
                                   val length = inputStream.read(packet)
+
                                   if (length <= 0) continue
+
                                   handlePacket(packet, length, outputStream)
+
                               } catch (e: Exception) {
+
                                   if (shouldRun.get()) e.printStackTrace()
+
                                   break
+
                               }
+
                           }
+
                       }.apply {
+
                           name = "KidsShieldDnsThread"
+
                           isDaemon = true
+
                           start()
+
                       }
+
                   }
+
+
 
                   private fun handlePacket(packet: ByteArray, length: Int, outputStream: FileOutputStream) {
+
                       val version = (packet[0].toInt() ushr 4) and 0x0F
+
                       if (version != 4 || length < 28) return
+
                       val ihl = (packet[0].toInt() and 0x0F) * 4
+
                       val protocol = packet[9].toInt() and 0xFF
+
                       if (protocol != 17 || length < ihl + 8) return
 
+
+
                       val srcIp = packet.copyOfRange(12, 16)
+
                       val dstIp = packet.copyOfRange(16, 20)
+
                       val srcPort = ((packet[ihl].toInt() and 0xFF) shl 8) or (packet[ihl + 1].toInt() and 0xFF)
+
                       val dstPort = ((packet[ihl + 2].toInt() and 0xFF) shl 8) or (packet[ihl + 3].toInt() and 0xFF)
+
                       val udpPayloadOffset = ihl + 8
+
                       val udpPayloadLength = length - udpPayloadOffset
+
                       if (udpPayloadLength <= 0) return
 
+
+
                       val payload = packet.copyOfRange(udpPayloadOffset, length)
+
                       Thread {
+
                           var socket: DatagramSocket? = null
+
                           try {
+
                               socket = DatagramSocket()
+
                               protect(socket)
+
                               socket.soTimeout = 5000
+
                               val serverAddr = InetAddress.getByAddress(dstIp)
+
                               socket.send(DatagramPacket(payload, payload.size, serverAddr, dstPort))
 
+
+
                               val respBuf = ByteArray(1500)
+
                               val respPacket = DatagramPacket(respBuf, respBuf.size)
+
                               socket.receive(respPacket)
 
+
+
                               val respData = respPacket.data
+
                               val respLen = respPacket.length
+
                               val totalLen = 20 + 8 + respLen
+
                               val outPacket = ByteArray(totalLen)
 
+
+
                               outPacket[0] = 0x45.toByte()
+
                               outPacket[1] = 0
+
                               outPacket[2] = ((totalLen ushr 8) and 0xFF).toByte()
+
                               outPacket[3] = (totalLen and 0xFF).toByte()
+
                               outPacket[4] = 0
+
                               outPacket[5] = 0
+
                               outPacket[6] = 0x40.toByte()
+
                               outPacket[7] = 0
+
                               outPacket[8] = 64.toByte()
+
                               outPacket[9] = 17.toByte()
+
                               System.arraycopy(dstIp, 0, outPacket, 12, 4)
+
                               System.arraycopy(srcIp, 0, outPacket, 16, 4)
 
+
+
                               var sum = 0
+
                               for (i in 0 until 20 step 2) {
+
                                   val word = ((outPacket[i].toInt() and 0xFF) shl 8) or (outPacket[i + 1].toInt() and 0xFF)
+
                                   sum += word
+
                               }
+
                               while ((sum ushr 16) != 0) {
+
                                   sum = (sum and 0xFFFF) + (sum ushr 16)
+
                               }
+
                               val checksum = sum.inv() and 0xFFFF
+
                               outPacket[10] = ((checksum ushr 8) and 0xFF).toByte()
+
                               outPacket[11] = (checksum and 0xFF).toByte()
 
+
+
                               val udpLen = 8 + respLen
+
                               outPacket[20] = ((dstPort ushr 8) and 0xFF).toByte()
+
                               outPacket[21] = (dstPort and 0xFF).toByte()
+
                               outPacket[22] = ((srcPort ushr 8) and 0xFF).toByte()
+
                               outPacket[23] = (srcPort and 0xFF).toByte()
+
                               outPacket[24] = ((udpLen ushr 8) and 0xFF).toByte()
+
                               outPacket[25] = (udpLen and 0xFF).toByte()
+
                               outPacket[26] = 0
+
                               outPacket[27] = 0
+
                               System.arraycopy(respData, 0, outPacket, 28, respLen)
 
+
+
                               synchronized(outputStream) {
+
                                   outputStream.write(outPacket)
+
                                   outputStream.flush()
+
                               }
+
                           } catch (_: Exception) {
+
                           } finally {
+
                               socket?.close()
+
                           }
+
                       }.start()
+
                   }
+
+
 
                   private fun startForegroundServiceWithNotification() {
+
                       val manager = getSystemService(NotificationManager::class.java)
+
                       if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+
                           val channel = NotificationChannel(
+
                               CHANNEL_ID,
+
                               "Статус защиты",
+
                               NotificationManager.IMPORTANCE_LOW
+
                           )
+
                           manager.createNotificationChannel(channel)
+
                       }
+
                       val pendingIntent = PendingIntent.getActivity(
+
                           this,
+
                           0,
+
                           Intent(this, MainActivity::class.java),
+
                           PendingIntent.FLAG_IMMUTABLE
+
                       )
+
                       val notification: Notification = NotificationCompat.Builder(this, CHANNEL_ID)
+
                           .setContentTitle("🛡️ Детский Щит активен")
+
                           .setContentText("Реклама в мини-играх и браузере заблокирована")
+
                           .setSmallIcon(android.R.drawable.ic_secure)
+
                           .setContentIntent(pendingIntent)
+
                           .setOngoing(true)
+
                           .build()
 
+
+
                       if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+
                           startForeground(
+
                               NOTIFICATION_ID,
+
                               notification,
+
                               ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE
+
                           )
+
                       } else {
+
                           startForeground(NOTIFICATION_ID, notification)
+
                       }
+
                   }
+
+
 
                   private fun stopVpn() {
+
                       shouldRun.set(false)
+
                       vpnThread?.interrupt()
+
                       vpnThread = null
+
                       try {
+
                           vpnInterface?.close()
+
                       } catch (e: Exception) {
+
                           e.printStackTrace()
+
                       } finally {
+
                           vpnInterface = null
+
                           isRunning = false
+
                           ServiceCompat.stopForeground(this, ServiceCompat.STOP_FOREGROUND_REMOVE)
+
                           stopSelf()
+
                       }
+
                   }
+
+
 
                   override fun onRevoke() {
+
                       stopVpn()
+
                       super.onRevoke()
+
                   }
+
+
 
                   override fun onDestroy() {
+
                       stopVpn()
+
                       super.onDestroy()
+
                   }
+
               }
+
           """)
+
+
 
           write("app/src/main/java/com/example/kidsadblocker/MainActivity.kt", """
+
               package com.example.kidsadblocker
 
+
+
               import android.Manifest
+
               import android.content.Intent
+
               import android.content.pm.PackageManager
+
               import android.content.res.ColorStateList
+
               import android.graphics.Color
+
               import android.net.VpnService
+
               import android.os.Build
+
               import android.os.Bundle
+
               import android.text.InputType
+
               import android.widget.Button
+
               import android.widget.EditText
+
               import android.widget.TextView
+
               import android.widget.Toast
+
               import androidx.activity.result.contract.ActivityResultContracts
+
               import androidx.appcompat.app.AlertDialog
+
               import androidx.appcompat.app.AppCompatActivity
+
               import androidx.core.content.ContextCompat
 
+
+
               class MainActivity : AppCompatActivity() {
+
                   private lateinit var tvShieldIcon: TextView
+
                   private lateinit var tvStatusTitle: TextView
+
                   private lateinit var tvStatusDesc: TextView
+
                   private lateinit var btnPower: Button
+
                   private val PARENT_PIN = "0000"
 
+
+
                   private val vpnPermissionLauncher = registerForActivityResult(
+
                       ActivityResultContracts.StartActivityForResult()
+
                   ) { result ->
+
                       if (result.resultCode == RESULT_OK) {
+
                           startVpnService()
+
                       } else {
+
                           Toast.makeText(this, "Разрешите подключение для блокировки рекламы!", Toast.LENGTH_LONG).show()
+
                       }
+
                   }
+
+
 
                   private val notificationPermissionLauncher = registerForActivityResult(
+
                       ActivityResultContracts.RequestPermission()
+
                   ) { _ ->
+
                       prepareAndStartVpn()
+
                   }
+
+
 
                   override fun onCreate(savedInstanceState: Bundle?) {
+
                       super.onCreate(savedInstanceState)
+
                       setContentView(R.layout.activity_main)
+
                       tvShieldIcon = findViewById(R.id.tvShieldIcon)
+
                       tvStatusTitle = findViewById(R.id.tvStatusTitle)
+
                       tvStatusDesc = findViewById(R.id.tvStatusDesc)
+
                       btnPower = findViewById(R.id.btnPower)
+
                       updateUi()
+
                       btnPower.setOnClickListener {
+
                           if (AdBlockVpnService.isRunning) {
+
                               showPinDialog()
+
                           } else {
+
                               checkPermissionsAndStartVpn()
+
                           }
+
                       }
+
                   }
+
+
 
                   override fun onResume() {
+
                       super.onResume()
+
                       updateUi()
+
                   }
+
+
 
                   private fun checkPermissionsAndStartVpn() {
+
                       if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+
                           ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
+
                       ) {
+
                           notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+
                       } else {
+
                           prepareAndStartVpn()
+
                       }
+
                   }
+
+
 
                   private fun showPinDialog() {
+
                       val input = EditText(this).apply {
+
                           inputType = InputType.TYPE_CLASS_NUMBER or InputType.TYPE_NUMBER_VARIATION_PASSWORD
+
                           hint = "ПИН-код (0000)"
+
                           textAlignment = EditText.TEXT_ALIGNMENT_CENTER
+
                       }
+
                       AlertDialog.Builder(this)
+
                           .setTitle("🔒 Родительский контроль")
+
                           .setMessage("Введите ПИН-код для отключения защиты:")
+
                           .setView(input)
+
                           .setPositiveButton("ОК") { _, _ ->
+
                               if (input.text.toString() == PARENT_PIN) {
+
                                   stopVpnService()
+
                                   Toast.makeText(this, "Защита отключена", Toast.LENGTH_SHORT).show()
+
                               } else {
+
                                   Toast.makeText(this, "❌ Неверный ПИН-код!", Toast.LENGTH_LONG).show()
+
                               }
+
                           }
+
                           .setNegativeButton("Отмена", null)
+
                           .show()
+
                   }
+
+
 
                   private fun prepareAndStartVpn() {
+
                       val intent = VpnService.prepare(this)
+
                       if (intent != null) {
+
                           vpnPermissionLauncher.launch(intent)
+
                       } else {
+
                           startVpnService()
+
                       }
+
                   }
+
+
 
                   private fun startVpnService() {
+
                       val intent = Intent(this, AdBlockVpnService::class.java)
+
                       if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+
                           startForegroundService(intent)
+
                       } else {
+
                           startService(intent)
+
                       }
+
                       btnPower.postDelayed({ updateUi() }, 400)
+
                   }
+
+
 
                   private fun stopVpnService() {
+
                       val intent = Intent(this, AdBlockVpnService::class.java).apply {
+
                           action = AdBlockVpnService.ACTION_STOP
+
                       }
+
                       startService(intent)
+
                       btnPower.postDelayed({ updateUi() }, 400)
+
                   }
+
+
 
                   private fun updateUi() {
+
                       if (AdBlockVpnService.isRunning) {
+
                           tvShieldIcon.text = "🛡️"
+
                           tvStatusTitle.text = "ЗАЩИТА АКТИВНА"
+
                           tvStatusTitle.setTextColor(Color.parseColor("#00E676"))
+
                           tvStatusDesc.text = "Реклама в играх и браузере заблокирована"
+
                           btnPower.text = "ВЫКЛЮЧИТЬ РУБИЛЬНИК"
+
                           btnPower.backgroundTintList = ColorStateList.valueOf(Color.parseColor("#FF5252"))
+
                       } else {
+
                           tvShieldIcon.text = "⚠️"
+
                           tvStatusTitle.text = "ЗАЩИТА ОТКЛЮЧЕНА"
+
                           tvStatusTitle.setTextColor(Color.parseColor("#FF5252"))
+
                           tvStatusDesc.text = "Нажмите кнопку ниже для включения фильтра"
+
                           btnPower.text = "ВКЛЮЧИТЬ РУБИЛЬНИК"
+
                           btnPower.backgroundTintList = ColorStateList.valueOf(Color.parseColor("#00C853"))
+
                       }
+
                   }
+
               }
+
           """)
+
           print("Android project files generated successfully!")
 
+
+
       - name: Setup Gradle
+
         uses: gradle/actions/setup-gradle@v4
+
         with:
+
           gradle-version: '8.5'
 
+
+
       - name: Build Debug APK
+
         run: gradle assembleDebug --stacktrace
 
+
+
       - name: Upload Android APK
+
         uses: actions/upload-artifact@v4
+
         with:
+
           name: KidsShield-Android-APK
+
           path: app/build/outputs/apk/debug/app-debug.apk
 
+
+
   build-windows:
+
     name: Build Windows EXE
+
     runs-on: windows-latest
 
+
+
     steps:
+
       - name: Set up Python 3.11
+
         uses: actions/setup-python@v5
+
         with:
+
           python-version: '3.11'
 
+
+
       - name: Generate Windows App & Build EXE
+
         shell: python
+
         run: |
+
           import subprocess
+
           import sys
+
           import textwrap
 
+
+
           win_app = """
+
               import ctypes
+
               import subprocess
+
               import sys
+
               import tkinter as tk
+
               from tkinter import messagebox, simpledialog
 
+
+
               PARENT_PIN = "0000"
+
               DNS_PRIMARY = "94.140.14.15"
+
               DNS_SECONDARY = "94.140.15.16"
+
               CREATE_NO_WINDOW = 0x08000000
 
+
+
               def is_admin():
+
                   try:
+
                       return ctypes.windll.shell32.IsUserAnAdmin() != 0
+
                   except Exception:
+
                       return False
 
+
+
               def run_ps(cmd):
+
                   return subprocess.run(
+
                       ["powershell", "-NoProfile", "-NonInteractive", "-Command", cmd],
+
                       capture_output=True,
+
                       text=True,
+
                       creationflags=CREATE_NO_WINDOW
+
                   )
+
+
 
               def check_shield_active():
+
                   res = run_ps("Get-DnsClientServerAddress -AddressFamily IPv4 | Select-Object -ExpandProperty ServerAddresses")
+
                   return DNS_PRIMARY in (res.stdout or "")
 
+
+
               def enable_shield():
+
                   ps_cmd = (
+
                       "$adapters = Get-NetAdapter | Where-Object { $_.Status -eq 'Up' }; "
+
                       "foreach ($a in $adapters) { "
+
                       f"Set-DnsClientServerAddress -InterfaceIndex $a.ifIndex -ServerAddresses ('{DNS_PRIMARY}','{DNS_SECONDARY}') "
+
                       "}; "
+
                       "Clear-DnsClientCache"
+
                   )
+
                   res = run_ps(ps_cmd)
+
                   return res.returncode == 0
+
+
 
               def disable_shield():
+
                   ps_cmd = (
+
                       "$adapters = Get-NetAdapter | Where-Object { $_.Status -eq 'Up' }; "
+
                       "foreach ($a in $adapters) { "
+
                       "Set-DnsClientServerAddress -InterfaceIndex $a.ifIndex -ResetServerAddresses "
+
                       "}; "
+
                       "Clear-DnsClientCache"
+
                   )
+
                   res = run_ps(ps_cmd)
+
                   return res.returncode == 0
 
+
+
               class KidsShieldWindowsApp:
+
                   def __init__(self, root):
+
                       self.root = root
+
                       self.root.title("Детский Щит (Windows)")
+
                       self.root.geometry("420x540")
+
                       self.root.resizable(False, False)
+
                       self.root.configure(bg="#121824")
+
+
 
                       self.is_running = check_shield_active()
 
+
+
                       tk.Label(
+
                           root,
+
                           text="ДЕТСКИЙ ЩИТ",
+
                           font=("Segoe UI", 22, "bold"),
+
                           fg="#FFFFFF",
+
                           bg="#121824"
+
                       ).pack(pady=(32, 4))
 
+
+
                       tk.Label(
+
                           root,
+
                           text="Блокировка рекламы в играх и браузере",
+
                           font=("Segoe UI", 10),
+
                           fg="#8A99AD",
+
                           bg="#121824"
+
                       ).pack(pady=(0, 32))
 
+
+
                       self.card = tk.Frame(root, bg="#1E2638", padx=28, pady=28)
+
                       self.card.pack(fill="x", padx=24, pady=(0, 36))
 
+
+
                       self.lbl_icon = tk.Label(
+
                           self.card,
+
                           text="⚠️",
+
                           font=("Segoe UI Emoji", 42),
+
                           bg="#1E2638",
+
                           fg="#FFFFFF"
+
                       )
+
                       self.lbl_icon.pack(pady=(0, 10))
 
+
+
                       self.lbl_status = tk.Label(
+
                           self.card,
+
                           text="ЗАЩИТА ОТКЛЮЧЕНА",
+
                           font=("Segoe UI", 15, "bold"),
+
                           bg="#1E2638",
+
                           fg="#FF5252"
+
                       )
+
                       self.lbl_status.pack()
 
+
+
                       self.lbl_desc = tk.Label(
+
                           self.card,
+
                           text="Реклама в мини-играх не блокируется",
+
                           font=("Segoe UI", 10),
+
                           bg="#1E2638",
+
                           fg="#8A99AD"
+
                       )
+
                       self.lbl_desc.pack(pady=(6, 0))
 
+
+
                       self.btn_power = tk.Button(
+
                           root,
+
                           text="ВКЛЮЧИТЬ РУБИЛЬНИК",
+
                           font=("Segoe UI", 13, "bold"),
+
                           fg="#FFFFFF",
+
                           bg="#00C853",
+
                           activebackground="#00E676",
+
                           activeforeground="#FFFFFF",
+
                           relief="flat",
+
                           cursor="hand2",
+
                           height=2,
+
                           command=self.toggle_shield
+
                       )
+
                       self.btn_power.pack(fill="x", padx=24)
 
+
+
                       tk.Label(
+
                           root,
+
                           text="🔒 Выключение защищено ПИН-кодом (0000)",
+
                           font=("Segoe UI", 9),
+
                           fg="#5C6B7F",
+
                           bg="#121824"
+
                       ).pack(pady=(28, 0))
+
+
 
                       self.update_ui()
 
+
+
                   def toggle_shield(self):
+
                       if self.is_running:
+
                           pin = simpledialog.askstring(
+
                               "🔒 Родительский контроль",
+
                               "Введите ПИН-код для отключения защиты:",
+
                               show="*",
+
                               parent=self.root
+
                           )
+
                           if pin is None:
+
                               return
+
                           if pin == PARENT_PIN:
+
                               if disable_shield():
+
                                   self.is_running = False
+
                                   self.update_ui()
+
                                   messagebox.showinfo("Детский Щит", "Защита отключена.")
+
                               else:
+
                                   messagebox.showerror("Ошибка", "Не удалось сбросить настройки DNS. Запустите программу от имени Администратора.")
+
                           else:
+
                               messagebox.showwarning("Родительский контроль", "❌ Неверный ПИН-код!")
+
                       else:
+
                           if enable_shield():
+
                               self.is_running = True
+
                               self.update_ui()
+
                           else:
+
                               messagebox.showerror("Ошибка", "Не удалось включить DNS-фильтр. Запустите программу от имени Администратора.")
 
+
+
                   def update_ui(self):
+
                       if self.is_running:
+
                           self.lbl_icon.config(text="🛡️")
+
                           self.lbl_status.config(text="ЗАЩИТА АКТИВНА", fg="#00E676")
+
                           self.lbl_desc.config(text="Реклама в играх и браузере заблокирована")
+
                           self.btn_power.config(text="ВЫКЛЮЧИТЬ РУБИЛЬНИК", bg="#FF5252", activebackground="#FF1744")
+
                       else:
+
                           self.lbl_icon.config(text="⚠️")
+
                           self.lbl_status.config(text="ЗАЩИТА ОТКЛЮЧЕНА", fg="#FF5252")
+
                           self.lbl_desc.config(text="Нажмите кнопку ниже для включения фильтра")
+
                           self.btn_power.config(text="ВКЛЮЧИТЬ РУБИЛЬНИК", bg="#00C853", activebackground="#00E676")
 
+
+
               if __name__ == "__main__":
+
                   if not is_admin():
+
                       ctypes.windll.shell32.ShellExecuteW(
+
                           None, "runas", sys.executable, " ".join(sys.argv), None, 1
+
                       )
+
                       sys.exit(0)
+
                   app_root = tk.Tk()
+
                   KidsShieldWindowsApp(app_root)
+
                   app_root.mainloop()
+
           """
 
+
+
           with open("kidsshield_win.py", "w", encoding="utf-8") as f:
+
               f.write(textwrap.dedent(win_app).strip() + "\n")
 
+
+
           subprocess.check_call([sys.executable, "-m", "pip", "install", "pyinstaller"])
+
           subprocess.check_call([
+
               sys.executable, "-m", "PyInstaller",
+
               "--noconsole",
+
               "--onefile",
+
               "--uac-admin",
+
               "--name", "KidsShield",
+
               "kidsshield_win.py"
+
           ])
+
+
 
       - name: Upload Windows EXE
+
         uses: actions/upload-artifact@v4
+
         with:
+
           name: KidsShield-Windows-EXE
+
           path: dist/KidsShield.exe
 
+
+
   build-apple:
+
     name: Build Apple (macOS App & iOS/iPadOS Profile)
+
     runs-on: macos-latest
 
+
+
     steps:
+
       - name: Generate macOS App & iOS/macOS DNS Profile
+
         shell: python3
+
         run: |
+
           import os
+
           import subprocess
+
           import textwrap
 
+
+
           def write(path, content):
+
               os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
+
               with open(path, "w", encoding="utf-8") as f:
+
                   f.write(textwrap.dedent(content).strip() + "\n")
 
+
+
           write("output/KidsShield-iOS-macOS.mobileconfig", """
+
               <?xml version="1.0" encoding="UTF-8"?>
+
               <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+
               <plist version="1.0">
+
               <dict>
+
                   <key>PayloadContent</key>
+
                   <array>
+
                       <dict>
+
                           <key>DNSSettings</key>
+
                           <dict>
+
                               <key>DNSProtocol</key>
+
                               <string>HTTPS</string>
+
                               <key>ServerAddresses</key>
+
                               <array>
+
                                   <string>94.140.14.15</string>
+
                                   <string>94.140.15.16</string>
+
                               </array>
+
                               <key>ServerURL</key>
+
                               <string>https://family.adguard-dns.com/dns-query</string>
+
                           </dict>
+
                           <key>PayloadDescription</key>
+
                           <string>Блокировка рекламы и взрослого контента в играх и браузере (AdGuard Family DNS)</string>
+
                           <key>PayloadDisplayName</key>
+
                           <string>Детский Щит DNS</string>
+
                           <key>PayloadIdentifier</key>
+
                           <string>com.example.kidsadblocker.dns</string>
+
                           <key>PayloadType</key>
+
                           <string>com.apple.dnsSettings.managed</string>
+
                           <key>PayloadUUID</key>
+
                           <string>7A9E62B0-3C14-4F8B-9B12-1029384756AB</string>
+
                           <key>PayloadVersion</key>
+
                           <integer>1</integer>
+
                       </dict>
+
                       <dict>
+
                           <key>PayloadDescription</key>
+
                           <string>Защита профиля от удаления без ПИН-кода (0000)</string>
+
                           <key>PayloadDisplayName</key>
+
                           <string>Родительский ПИН-код</string>
+
                           <key>PayloadIdentifier</key>
+
                           <string>com.example.kidsadblocker.removalpassword</string>
+
                           <key>PayloadType</key>
+
                           <string>com.apple.profileRemovalPassword</string>
+
                           <key>PayloadUUID</key>
+
                           <string>8B0F73C1-4D25-4A9C-8C23-2130495867BC</string>
+
                           <key>PayloadVersion</key>
+
                           <integer>1</integer>
+
                           <key>RemovalPassword</key>
+
                           <string>0000</string>
+
                       </dict>
+
                   </array>
+
                   <key>PayloadDescription</key>
+
                   <string>Детский Щит: системная блокировка рекламы в играх и Safari на iPhone, iPad и Mac. ПИН-код для удаления: 0000.</string>
+
                   <key>PayloadDisplayName</key>
+
                   <string>🛡️ Детский Щит (iOS / iPadOS / macOS)</string>
+
                   <key>PayloadIdentifier</key>
+
                   <string>com.example.kidsadblocker.profile</string>
+
                   <key>PayloadOrganization</key>
+
                   <string>KidsShield</string>
+
                   <key>PayloadRemovalDisallowed</key>
+
                   <true/>
+
                   <key>PayloadType</key>
+
                   <string>Configuration</string>
+
                   <key>PayloadUUID</key>
+
                   <string>6F8D51A9-2B03-4E7A-8A01-0918273645FA</string>
+
                   <key>PayloadVersion</key>
+
                   <integer>1</integer>
+
               </dict>
+
               </plist>
+
           """)
+
+
 
           write("KidsShield.swift", """
+
               import Cocoa
+
               import SwiftUI
 
+
+
               let parentPin = "0000"
+
               let dnsPrimary = "94.140.14.15"
+
               let dnsSecondary = "94.140.15.16"
 
+
+
               class ShieldManager: ObservableObject {
+
                   @Published var isRunning: Bool = false
 
+
+
                   init() {
+
                       checkStatus()
+
                   }
+
+
 
                   func checkStatus() {
+
                       let task = Process()
+
                       task.launchPath = "/usr/sbin/scutil"
+
                       task.arguments = ["--dns"]
+
                       let pipe = Pipe()
+
                       task.standardOutput = pipe
+
                       do {
+
                           try task.run()
+
                           task.waitUntilExit()
+
                           let data = pipe.fileHandleForReading.readDataToEndOfFile()
+
                           let output = String(data: data, encoding: .utf8) ?? ""
+
                           DispatchQueue.main.async {
+
                               self.isRunning = output.contains(dnsPrimary)
+
                           }
+
                       } catch {
+
                           DispatchQueue.main.async {
+
                               self.isRunning = false
+
                           }
+
                       }
+
                   }
+
+
 
                   func enableShield() {
+
                       let script = \"\"\"
+
                       do shell script "for s in $(networksetup -listallnetworkservices | tail -n +2 | sed 's/^\\\\*//'); do networksetup -setdnsservers \\"$s\\" \(dnsPrimary) \(dnsSecondary) 2>/dev/null || true; done; dscacheutil -flushcache; killall -HUP mDNSResponder 2>/dev/null || true" with administrator privileges
+
                       \"\"\"
+
                       if runAppleScript(script) {
+
                           isRunning = true
+
                       }
+
                   }
+
+
 
                   func disableShield() {
+
                       let script = \"\"\"
+
                       do shell script "for s in $(networksetup -listallnetworkservices | tail -n +2 | sed 's/^\\\\*//'); do networksetup -setdnsservers \\"$s\\" Empty 2>/dev/null || true; done; dscacheutil -flushcache; killall -HUP mDNSResponder 2>/dev/null || true" with administrator privileges
+
                       \"\"\"
+
                       if runAppleScript(script) {
+
                           isRunning = false
+
                       }
+
                   }
+
+
 
                   private func runAppleScript(_ source: String) -> Bool {
+
                       var error: NSDictionary?
+
                       if let scriptObject = NSAppleScript(source: source) {
+
                           scriptObject.executeAndReturnError(&error)
+
                           return error == nil
+
                       }
+
                       return false
+
                   }
+
               }
+
+
 
               struct ContentView: View {
+
                   @StateObject private var manager = ShieldManager()
+
                   @State private var showPinPrompt = false
+
                   @State private var pinInput = ""
+
                   @State private var showWrongPinAlert = false
 
+
+
                   var body: some View {
+
                       VStack(spacing: 0) {
+
                           Text("ДЕТСКИЙ ЩИТ")
+
                               .font(.system(size: 26, weight: .bold))
+
                               .foregroundColor(.white)
+
                               .padding(.top, 32)
 
+
+
                           Text("Блокировка рекламы в играх и браузере")
+
                               .font(.system(size: 13))
+
                               .foregroundColor(Color(red: 0.54, green: 0.60, blue: 0.68))
+
                               .padding(.top, 6)
+
                               .padding(.bottom, 36)
 
+
+
                           VStack(spacing: 10) {
+
                               Text(manager.isRunning ? "🛡️" : "⚠️")
+
                                   .font(.system(size: 52))
+
                               Text(manager.isRunning ? "ЗАЩИТА АКТИВНА" : "ЗАЩИТА ОТКЛЮЧЕНА")
+
                                   .font(.system(size: 18, weight: .bold))
+
                                   .foregroundColor(manager.isRunning
+
                                       ? Color(red: 0.0, green: 0.90, blue: 0.46)
+
                                       : Color(red: 1.0, green: 0.32, blue: 0.32))
+
                               Text(manager.isRunning
+
                                   ? "Реклама в играх и браузере заблокирована"
+
                                   : "Нажмите кнопку ниже для включения фильтра")
+
                                   .font(.system(size: 13))
+
                                   .foregroundColor(Color(red: 0.54, green: 0.60, blue: 0.68))
+
                                   .multilineTextAlignment(.center)
+
                           }
+
                           .frame(maxWidth: .infinity)
+
                           .padding(26)
+
                           .background(Color(red: 0.12, green: 0.15, blue: 0.22))
+
                           .cornerRadius(12)
+
                           .padding(.horizontal, 24)
+
                           .padding(.bottom, 36)
 
+
+
                           Button(action: {
+
                               if manager.isRunning {
+
                                   pinInput = ""
+
                                   showPinPrompt = true
+
                               } else {
+
                                   manager.enableShield()
+
                               }
+
                           }) {
+
                               Text(manager.isRunning ? "ВЫКЛЮЧИТЬ РУБИЛЬНИК" : "ВКЛЮЧИТЬ РУБИЛЬНИК")
+
                                   .font(.system(size: 16, weight: .bold))
+
                                   .foregroundColor(.white)
+
                                   .frame(maxWidth: .infinity)
+
                                   .frame(height: 60)
+
                                   .background(manager.isRunning
+
                                       ? Color(red: 1.0, green: 0.32, blue: 0.32)
+
                                       : Color(red: 0.0, green: 0.78, blue: 0.33))
+
                                   .cornerRadius(10)
+
                           }
+
                           .buttonStyle(PlainButtonStyle())
+
                           .padding(.horizontal, 24)
 
+
+
                           Text("🔒 Выключение защищено ПИН-кодом (0000)")
+
                               .font(.system(size: 12))
+
                               .foregroundColor(Color(red: 0.36, green: 0.42, blue: 0.50))
+
                               .padding(.top, 28)
 
+
+
                           Spacer()
+
                       }
+
                       .frame(width: 400, height: 500)
+
                       .background(Color(red: 0.07, green: 0.09, blue: 0.14))
+
                       .sheet(isPresented: $showPinPrompt) {
+
                           VStack(spacing: 16) {
+
                               Text("🔒 Родительский контроль")
+
                                   .font(.headline)
+
                               Text("Введите ПИН-код для отключения защиты:")
+
                                   .font(.subheadline)
+
                               SecureField("ПИН-код (0000)", text: $pinInput)
+
                                   .textFieldStyle(RoundedBorderTextFieldStyle())
+
                                   .frame(width: 180)
+
                               HStack(spacing: 12) {
+
                                   Button("Отмена") {
+
                                       showPinPrompt = false
+
                                   }
+
                                   Button("ОК") {
+
                                       showPinPrompt = false
+
                                       if pinInput == parentPin {
+
                                           manager.disableShield()
+
                                       } else {
+
                                           showWrongPinAlert = true
+
                                       }
+
                                   }
+
                               }
+
                           }
+
                           .padding(24)
+
                           .frame(width: 300, height: 180)
+
                       }
+
                       .alert(isPresented: $showWrongPinAlert) {
+
                           Alert(
+
                               title: Text("Ошибка"),
+
                               message: Text("❌ Неверный ПИН-код!"),
+
                               dismissButton: .default(Text("ОК"))
+
                           )
+
                       }
+
                   }
+
               }
+
+
 
               class AppDelegate: NSObject, NSApplicationDelegate {
+
                   var window: NSWindow!
+
                   func applicationDidFinishLaunching(_ notification: Notification) {
+
                       let contentView = ContentView()
+
                       window = NSWindow(
+
                           contentRect: NSRect(x: 0, y: 0, width: 400, height: 500),
+
                           styleMask: [.titled, .closable, .miniaturizable],
+
                           backing: .buffered,
+
                           defer: false
+
                       )
+
                       window.center()
+
                       window.title = "Детский Щит"
+
                       window.contentView = NSHostingView(rootView: contentView)
+
                       window.makeKeyAndOrderFront(nil)
+
                       NSApp.activate(ignoringOtherApps: true)
+
                   }
+
                   func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
+
                       return true
+
                   }
+
               }
 
+
+
               let app = NSApplication.shared
+
               let delegate = AppDelegate()
+
               app.delegate = delegate
+
               app.setActivationPolicy(.regular)
+
               app.run()
+
           """)
+
+
 
           os.makedirs("KidsShield.app/Contents/MacOS", exist_ok=True)
+
           write("KidsShield.app/Contents/Info.plist", """
+
               <?xml version="1.0" encoding="UTF-8"?>
+
               <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+
               <plist version="1.0">
+
               <dict>
+
                   <key>CFBundleExecutable</key>
+
                   <string>KidsShield</string>
+
                   <key>CFBundleIdentifier</key>
+
                   <string>com.example.kidsadblocker.mac</string>
+
                   <key>CFBundleName</key>
+
                   <string>Детский Щит</string>
+
                   <key>CFBundlePackageType</key>
+
                   <string>APPL</string>
+
                   <key>CFBundleShortVersionString</key>
+
                   <string>1.0</string>
+
                   <key>LSMinimumSystemVersion</key>
+
                   <string>11.0</string>
+
                   <key>NSHighResolutionCapable</key>
+
                   <true/>
+
               </dict>
+
               </plist>
+
           """)
 
+
+
           subprocess.check_call([
+
               "swiftc", "KidsShield.swift",
+
               "-o", "KidsShield.app/Contents/MacOS/KidsShield"
-          ])
-          subprocess.check_call([
-              "ditto", "-c", "-k", "--sequesterRsrc", "--keepParent",
-              "KidsShield.app", "output/KidsShield-macOS.zip"
+
           ])
 
+          subprocess.check_call([
+
+              "ditto", "-c", "-k", "--sequesterRsrc", "--keepParent",
+
+              "KidsShield.app", "output/KidsShield-macOS.zip"
+
+          ])
+
+
+
       - name: Upload Apple Installers (macOS App + iOS/iPadOS Profile)
+
         uses: actions/upload-artifact@v4
+
         with:
+
           name: KidsShield-Apple-Installers
+
           path: |
+
             output/KidsShield-macOS.zip
+
             output/KidsShield-iOS-macOS.mobileconfig
-build.yml
-Displaying build.yml.
+

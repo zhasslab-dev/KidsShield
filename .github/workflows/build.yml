@@ -34,9 +34,9 @@ jobs:
 
 
 
-      - name: Set up Android SDK
+      - name: Accept Android SDK Licenses
 
-        uses: android-actions/setup-android@v3
+        run: yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null || true
 
 
 
@@ -1662,9 +1662,19 @@ jobs:
 
     steps:
 
+      - name: Set up Python 3.11
+
+        uses: actions/setup-python@v5
+
+        with:
+
+          python-version: '3.11'
+
+
+
       - name: Generate macOS App & iOS/macOS DNS Profile
 
-        shell: python3
+        shell: python
 
         run: |
 
@@ -1826,7 +1836,7 @@ jobs:
 
 
 
-          write("KidsShield.swift", """
+          write("KidsShield.swift", r"""
 
               import Cocoa
 
@@ -1856,11 +1866,51 @@ jobs:
 
 
 
+                  func getNetworkServices() -> [String] {
+
+                      let task = Process()
+
+                      task.executableURL = URL(fileURLWithPath: "/usr/sbin/networksetup")
+
+                      task.arguments = ["-listallnetworkservices"]
+
+                      let pipe = Pipe()
+
+                      task.standardOutput = pipe
+
+                      do {
+
+                          try task.run()
+
+                          task.waitUntilExit()
+
+                          let data = pipe.fileHandleForReading.readDataToEndOfFile()
+
+                          let output = String(data: data, encoding: .utf8) ?? ""
+
+                          return output.components(separatedBy: .newlines)
+
+                              .dropFirst()
+
+                              .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+
+                              .filter { !$0.isEmpty && !$0.hasPrefix("*") }
+
+                      } catch {
+
+                          return ["Wi-Fi", "Ethernet"]
+
+                      }
+
+                  }
+
+
+
                   func checkStatus() {
 
                       let task = Process()
 
-                      task.launchPath = "/usr/sbin/scutil"
+                      task.executableURL = URL(fileURLWithPath: "/usr/sbin/scutil")
 
                       task.arguments = ["--dns"]
 
@@ -1900,13 +1950,15 @@ jobs:
 
                   func enableShield() {
 
-                      let script = \"\"\"
+                      let services = getNetworkServices()
 
-                      do shell script "for s in $(networksetup -listallnetworkservices | tail -n +2 | sed 's/^\\\\*//'); do networksetup -setdnsservers \\"$s\\" \(dnsPrimary) \(dnsSecondary) 2>/dev/null || true; done; dscacheutil -flushcache; killall -HUP mDNSResponder 2>/dev/null || true" with administrator privileges
+                      let cmds = services.map { "/usr/sbin/networksetup -setdnsservers '\($0)' \(dnsPrimary) \(dnsSecondary)" }
 
-                      \"\"\"
+                      let fullCmd = (cmds + ["/usr/bin/dscacheutil -flushcache", "/usr/bin/killall -HUP mDNSResponder || true"]).joined(separator: "; ")
 
-                      if runAppleScript(script) {
+                      let appleScript = "do shell script \"\(fullCmd)\" with administrator privileges"
+
+                      if runAppleScript(appleScript) {
 
                           isRunning = true
 
@@ -1918,13 +1970,15 @@ jobs:
 
                   func disableShield() {
 
-                      let script = \"\"\"
+                      let services = getNetworkServices()
 
-                      do shell script "for s in $(networksetup -listallnetworkservices | tail -n +2 | sed 's/^\\\\*//'); do networksetup -setdnsservers \\"$s\\" Empty 2>/dev/null || true; done; dscacheutil -flushcache; killall -HUP mDNSResponder 2>/dev/null || true" with administrator privileges
+                      let cmds = services.map { "/usr/sbin/networksetup -setdnsservers '\($0)' Empty" }
 
-                      \"\"\"
+                      let fullCmd = (cmds + ["/usr/bin/dscacheutil -flushcache", "/usr/bin/killall -HUP mDNSResponder || true"]).joined(separator: "; ")
 
-                      if runAppleScript(script) {
+                      let appleScript = "do shell script \"\(fullCmd)\" with administrator privileges"
+
+                      if runAppleScript(appleScript) {
 
                           isRunning = false
 

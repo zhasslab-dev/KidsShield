@@ -10,6 +10,12 @@ on:
 
 
 
+permissions:
+
+  contents: write
+
+
+
 jobs:
 
   build-android:
@@ -1200,7 +1206,11 @@ jobs:
 
       - name: Build Debug APK
 
-        run: gradle assembleDebug --stacktrace
+        run: |
+
+          gradle assembleDebug --stacktrace
+
+          cp app/build/outputs/apk/debug/app-debug.apk KidsShield.apk
 
 
 
@@ -1212,7 +1222,7 @@ jobs:
 
           name: KidsShield-Android-APK
 
-          path: app/build/outputs/apk/debug/app-debug.apk
+          path: KidsShield.apk
 
 
 
@@ -1654,7 +1664,7 @@ jobs:
 
   build-apple:
 
-    name: Build Apple (macOS App & iOS/iPadOS Profile)
+    name: Build Apple (macOS DMG & iOS Profile)
 
     runs-on: macos-latest
 
@@ -1672,7 +1682,7 @@ jobs:
 
 
 
-      - name: Generate macOS App & iOS/macOS DNS Profile
+      - name: Generate macOS DMG Installer & iOS DNS Profile
 
         shell: python
 
@@ -1696,7 +1706,7 @@ jobs:
 
 
 
-          write("output/KidsShield-iOS-macOS.mobileconfig", """
+          write("output/KidsShield-iOS.mobileconfig", """
 
               <?xml version="1.0" encoding="UTF-8"?>
 
@@ -2278,9 +2288,9 @@ jobs:
 
 
 
-          os.makedirs("KidsShield.app/Contents/MacOS", exist_ok=True)
+          os.makedirs("dmg_staging/KidsShield.app/Contents/MacOS", exist_ok=True)
 
-          write("KidsShield.app/Contents/Info.plist", """
+          write("dmg_staging/KidsShield.app/Contents/Info.plist", """
 
               <?xml version="1.0" encoding="UTF-8"?>
 
@@ -2330,21 +2340,27 @@ jobs:
 
               "swiftc", "KidsShield.swift",
 
-              "-o", "KidsShield.app/Contents/MacOS/KidsShield"
+              "-o", "dmg_staging/KidsShield.app/Contents/MacOS/KidsShield"
 
           ])
 
           subprocess.check_call([
 
-              "ditto", "-c", "-k", "--sequesterRsrc", "--keepParent",
+              "hdiutil", "create",
 
-              "KidsShield.app", "output/KidsShield-macOS.zip"
+              "-volname", "KidsShield",
+
+              "-srcfolder", "dmg_staging",
+
+              "-ov", "-format", "UDZO",
+
+              "output/KidsShield-macOS.dmg"
 
           ])
 
 
 
-      - name: Upload Apple Installers (macOS App + iOS/iPadOS Profile)
+      - name: Upload Apple Installers (macOS DMG + iOS Profile)
 
         uses: actions/upload-artifact@v4
 
@@ -2354,7 +2370,63 @@ jobs:
 
           path: |
 
-            output/KidsShield-macOS.zip
+            output/KidsShield-macOS.dmg
 
-            output/KidsShield-iOS-macOS.mobileconfig
+            output/KidsShield-iOS.mobileconfig
+
+
+
+  publish-release:
+
+    name: Publish Direct Installers to GitHub Releases
+
+    needs: [build-android, build-windows, build-apple]
+
+    runs-on: ubuntu-latest
+
+    steps:
+
+      - name: Download All Built Installers
+
+        uses: actions/download-artifact@v4
+
+        with:
+
+          path: release_files
+
+          merge-multiple: true
+
+
+
+      - name: Create GitHub Release with Direct Download Links
+
+        uses: softprops/action-gh-release@v2
+
+        with:
+
+          tag_name: v1.0.0
+
+          name: "🛡️ Детский Щит v1.0 — Установщики (Android, Windows, Apple)"
+
+          body: |
+
+            ### Скачайте готовый установщик для вашего устройства:
+
+            * 📱 **Android (телефон / планшет)**: скачайте и откройте **`KidsShield.apk`**
+
+            * 💻 **Windows (ПК / ноутбук)**: скачайте и запустите **`KidsShield.exe`**
+
+            * 🍏 **Mac (macOS)**: скачайте и откройте образ **`KidsShield-macOS.dmg`**
+
+            * 🍎 **iPhone / iPad (iOS / iPadOS)**: откройте эту страницу через браузер **Safari**, нажмите на **`KidsShield-iOS.mobileconfig`**, затем перейдите в *Настройки → Профиль загружен → Установить* (ПИН-код: `0000`)
+
+          files: |
+
+            release_files/KidsShield.apk
+
+            release_files/KidsShield.exe
+
+            release_files/KidsShield-macOS.dmg
+
+            release_files/KidsShield-iOS.mobileconfig
 

@@ -1772,43 +1772,11 @@ jobs:
 
                       </dict>
 
-                      <dict>
-
-                          <key>PayloadDescription</key>
-
-                          <string>Защита профиля от удаления без ПИН-кода (0000)</string>
-
-                          <key>PayloadDisplayName</key>
-
-                          <string>Родительский ПИН-код</string>
-
-                          <key>PayloadIdentifier</key>
-
-                          <string>com.example.kidsadblocker.removalpassword</string>
-
-                          <key>PayloadType</key>
-
-                          <string>com.apple.profileRemovalPassword</string>
-
-                          <key>PayloadUUID</key>
-
-                          <string>8B0F73C1-4D25-4A9C-8C23-2130495867BC</string>
-
-                          <key>PayloadVersion</key>
-
-                          <integer>1</integer>
-
-                          <key>RemovalPassword</key>
-
-                          <string>0000</string>
-
-                      </dict>
-
                   </array>
 
                   <key>PayloadDescription</key>
 
-                  <string>Детский Щит: системная блокировка рекламы в играх и Safari на iPhone, iPad и Mac. ПИН-код для удаления: 0000.</string>
+                  <string>Детский Щит: системная блокировка рекламы в играх и Safari на iPhone, iPad и Mac.</string>
 
                   <key>PayloadDisplayName</key>
 
@@ -1824,7 +1792,7 @@ jobs:
 
                   <key>PayloadRemovalDisallowed</key>
 
-                  <true/>
+                  <false/>
 
                   <key>PayloadType</key>
 

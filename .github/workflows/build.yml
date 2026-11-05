@@ -1706,7 +1706,7 @@ jobs:
 
 
 
-          write("output/KidsShield-iOS.mobileconfig", """
+          write("output/KidsShield-iPhone-v2.mobileconfig", """
 
               <?xml version="1.0" encoding="UTF-8"?>
 
@@ -1752,11 +1752,11 @@ jobs:
 
                           <key>PayloadDisplayName</key>
 
-                          <string>Детский Щит DNS</string>
+                          <string>Детский Щит DNS v2</string>
 
                           <key>PayloadIdentifier</key>
 
-                          <string>com.example.kidsadblocker.dns</string>
+                          <string>com.example.kidsadblocker.dns.v2</string>
 
                           <key>PayloadType</key>
 
@@ -1764,7 +1764,7 @@ jobs:
 
                           <key>PayloadUUID</key>
 
-                          <string>7A9E62B0-3C14-4F8B-9B12-1029384756AB</string>
+                          <string>A1B2C3D4-1111-4222-8333-444455556666</string>
 
                           <key>PayloadVersion</key>
 
@@ -1776,15 +1776,15 @@ jobs:
 
                   <key>PayloadDescription</key>
 
-                  <string>Детский Щит: системная блокировка рекламы в играх и Safari на iPhone, iPad и Mac.</string>
+                  <string>Детский Щит v2: системная блокировка рекламы в играх и Safari на обычных iPhone, iPad и Mac.</string>
 
                   <key>PayloadDisplayName</key>
 
-                  <string>🛡️ Детский Щит (iOS / iPadOS / macOS)</string>
+                  <string>🛡️ Детский Щит v2 (iPhone / iPad)</string>
 
                   <key>PayloadIdentifier</key>
 
-                  <string>com.example.kidsadblocker.profile</string>
+                  <string>com.example.kidsadblocker.profile.v2</string>
 
                   <key>PayloadOrganization</key>
 
@@ -1800,7 +1800,7 @@ jobs:
 
                   <key>PayloadUUID</key>
 
-                  <string>6F8D51A9-2B03-4E7A-8A01-0918273645FA</string>
+                  <string>B2C3D4E5-2222-4333-8444-555566667777</string>
 
                   <key>PayloadVersion</key>
 
@@ -2340,7 +2340,7 @@ jobs:
 
             output/KidsShield-macOS.dmg
 
-            output/KidsShield-iOS.mobileconfig
+            output/KidsShield-iPhone-v2.mobileconfig
 
 
 
@@ -2366,6 +2366,16 @@ jobs:
 
 
 
+      - name: Remove Old Release Cache
+
+        env:
+
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+        run: gh release delete v1.0.0 --yes --cleanup-tag || true
+
+
+
       - name: Create GitHub Release with Direct Download Links
 
         uses: softprops/action-gh-release@v2
@@ -2374,7 +2384,9 @@ jobs:
 
           tag_name: v1.0.0
 
-          name: "🛡️ Детский Щит v1.0 — Установщики (Android, Windows, Apple)"
+          make_latest: true
+
+          name: "🛡️ Детский Щит v2.0 — Установщики (Android, Windows, Apple)"
 
           body: |
 
@@ -2386,7 +2398,7 @@ jobs:
 
             * 🍏 **Mac (macOS)**: скачайте и откройте образ **`KidsShield-macOS.dmg`**
 
-            * 🍎 **iPhone / iPad (iOS / iPadOS)**: откройте эту страницу через браузер **Safari**, нажмите на **`KidsShield-iOS.mobileconfig`**, затем перейдите в *Настройки → Профиль загружен → Установить* (ПИН-код: `0000`)
+            * 🍎 **iPhone / iPad (iOS / iPadOS)**: откройте эту страницу через браузер **Safari**, нажмите на **`KidsShield-iPhone-v2.mobileconfig`**, затем перейдите в *Настройки → Профиль загружен → Установить* (ПИН-код: `0000`)
 
           files: |
 
@@ -2396,5 +2408,5 @@ jobs:
 
             release_files/KidsShield-macOS.dmg
 
-            release_files/KidsShield-iOS.mobileconfig
+            release_files/KidsShield-iPhone-v2.mobileconfig
 
